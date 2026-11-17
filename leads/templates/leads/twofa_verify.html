@@ -1,0 +1,12 @@
+{% extends "leads/base.html" %}
+{% block title %}קוד אימות{% endblock %}
+{% block content %}
+<div class="login">
+  <h1>קוד אימות</h1>
+  <form method="post" class="panel">{% csrf_token %}
+    <p style="margin:0">הקלד את הקוד בן 6 הספרות מאפליקציית ה-Authenticator.</p>
+    <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required autofocus aria-label="קוד">
+    <button class="btn primary" type="submit">כניסה</button>
+  </form>
+</div>
+{% endblock %}

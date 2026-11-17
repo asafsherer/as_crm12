@@ -1,0 +1,116 @@
+{% extends "leads/base.html" %}
+{% load crm_tags %}
+{% block title %}לידים{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>לידים</h1><p class="sub">{{ total }} לידים{% if q %} · חיפוש: {{ q }}{% endif %}</p></div>
+  <div class="actions">
+    <a class="btn primary" href="{% url 'lead_create' %}">+ ליד חדש</a>
+    {% if is_manager %}<a class="btn" href="{% url 'import' %}">ייבוא מאקסל</a>{% endif %}
+  </div>
+</div>
+
+{% if shared_with_me %}
+<section class="panel"><h2 style="margin-top:0">משותפים איתי</h2>
+  {% for l in shared_with_me %}<div class="doc"><a href="{% url 'lead_detail' l.pk %}">{{ l.full_name }}</a><span class="meta">{{ l.phone }}</span></div>{% endfor %}
+</section>
+{% endif %}
+<form class="toolbar" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="חיפוש: שם, טלפון, מייל{% if pii_ok %}, ת״ז{% endif %}, קמפיין" aria-label="חיפוש">
+  <select name="phone" aria-label="טלפון" data-autosubmit>
+    <option value="">עם ובלי טלפון</option>
+    <option value="yes" {% if phone == 'yes' %}selected{% endif %}>רק עם טלפון</option>
+    <option value="no" {% if phone == 'no' %}selected{% endif %}>רק בלי טלפון</option>
+  </select>
+  <select name="web" aria-label="מקור" data-autosubmit>
+    <option value="">כל המקורות</option>
+    <option value="1" {% if web == '1' %}selected{% endif %}>רק מהאתר והקמפיינים</option>
+  </select>
+  {% if is_manager %}<select name="owner" aria-label="מטפל" data-autosubmit>
+    <option value="">כל המטפלים</option><option value="none" {% if owner == 'none' %}selected{% endif %}>לא משויכים</option>
+    {% for u in team %}<option value="{{ u.pk }}" {% if owner == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>{% endfor %}
+  </select>{% endif %}
+  {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+  <button class="btn" type="submit">חיפוש</button>
+</form>
+
+<div class="chips" role="tablist" aria-label="סינון לפי סטטוס">
+  <a class="chip-all {% if not status %}on{% endif %}" href="?{% if q %}q={{ q|urlencode }}{% endif %}">הכל <b>{{ total }}</b></a>
+  {% for c in chips %}
+  <a class="fchip {% if status == c.def.key %}on{% endif %}" style="--c:{{ c.def.color }}" href="?status={{ c.def.key }}{% if q %}&q={{ q|urlencode }}{% endif %}"><i></i>{{ c.def.label }} <b>{{ c.count }}</b></a>
+  {% endfor %}
+  {% if is_manager %}<button class="chip-add" type="button" data-open="#statusDlg" aria-label="הוספת סטטוס" title="הוספת סטטוס">+</button>{% endif %}
+</div>
+
+{% if is_manager and unassigned_matching %}
+<details class="panel assign"><summary>שיוך לידים למטפל ({{ unassigned_matching }} לא משויכים בסינון)</summary>
+<form method="post" class="actions" style="margin-top:.7rem">{% csrf_token %}
+  <input type="hidden" name="action" value="assign">
+  <input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="status" value="{{ status }}"><input type="hidden" name="phone" value="{{ phone }}"><input type="hidden" name="owner" value="{{ owner }}"><input type="hidden" name="web" value="{{ web }}">
+  <span>שייך</span><input type="text" name="count" value="{{ unassigned_matching }}" size="5" inputmode="numeric" aria-label="כמות">
+  <span>אל</span>
+  <select name="assignee" aria-label="משתמש">{% for u in team %}<option value="{{ u.pk }}">{{ u.username }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">שיוך</button>
+</form></details>
+{% endif %}
+
+{% for sec in sections %}
+<section class="lgroup" style="--c:{{ sec.def.color }}">
+  <details open>
+    <summary><span class="gname"><i></i>{{ sec.def.label }}</span><span class="gcount">{{ sec.count }} לידים</span></summary>
+    <div class="scroll"><table class="ltable">
+      <thead><tr><th>שם מלא</th><th>הערה אחרונה</th><th>סטטוס</th><th>חזרה / פגישה</th><th>טלפון</th><th>אימייל</th></tr></thead>
+      <tbody>
+      {% for l in sec.rows %}
+      <tr>
+        <td class="nm"><a href="{% url 'lead_detail' l.pk %}" data-drawer="{% url 'lead_drawer' l.pk %}">{{ l.full_name }}</a>
+          {% if l.lead_score is not None %}<span class="score {% if l.lead_score >= 70 %}hot{% elif l.lead_score >= 40 %}warm{% else %}cold{% endif %}" title="ניקוד ליד">{{ l.lead_score }}</span>{% endif %}
+          {% if l.campaign %}<span class="mini">{{ l.campaign }}</span>{% elif l.source %}<span class="mini">{{ l.source }}</span>{% endif %}</td>
+        <td class="note"><form method="post" action="{% url 'lead_note_quick' l.pk %}" class="qnote">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><input type="text" name="text" maxlength="300" placeholder="{{ l.last_note|default:'הוסף הערה...'|truncatechars:48 }}" aria-label="הערה מהירה"></form></td>
+        <td><button type="button" class="chip" style="--c:{{ sec.def.color }}" data-status-menu data-action="{% url 'quick_status' l.pk %}">{{ sec.def.label }}</button></td>
+        <td>{% if l.callback_on %}<span class="{% if l.callback_on < today_date %}late{% endif %}">{{ l.callback_on|date:"d/m/Y" }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+        <td><span class="ltr">{{ l.best_phone|default:"—" }}</span></td>
+        <td class="em"><span class="ltr">{{ l.email|default:"—" }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if sec.more %}<p class="meta" style="margin:.5rem 0 0"><a href="?status={{ sec.def.key }}{% if q %}&q={{ q|urlencode }}{% endif %}">הצגת כל {{ sec.count }} הלידים בסטטוס הזה</a></p>{% endif %}
+  </details>
+</section>
+{% empty %}
+<p class="empty">לא נמצאו לידים. נסה לשנות את החיפוש, או <a href="{% url 'import' %}">ייבא רשימה מאקסל</a>.</p>
+{% endfor %}
+
+{% if page and page.paginator.num_pages > 1 %}
+<div class="pager">
+  {% if page.has_previous %}<a class="btn sm" href="?{{ qs }}&page={{ page.previous_page_number }}">הקודם</a>{% endif %}
+  <span class="meta">עמוד {{ page.number }} מתוך {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn sm" href="?{{ qs }}&page={{ page.next_page_number }}">הבא</a>{% endif %}
+</div>
+{% endif %}
+
+<form class="statusmenu" id="statusMenu" method="post" hidden>{% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="pills">{% for d in defs %}<button class="pillbtn" type="submit" name="status" value="{{ d.key }}" style="--c:{{ d.color }}">{{ d.label }}</button>{% endfor %}</div>
+  <p class="meta">החלפת סטטוס נרשמת אוטומטית בהיסטוריה של הליד.</p>
+  <div class="actions"><input type="date" name="callback_on" aria-label="תאריך חזרה"><span class="meta">תאריך חזרה (לסטטוס ״חזרה בעוד זמן״)</span></div>
+</form>
+
+{% if is_manager %}
+<dialog id="statusDlg" class="dlg">
+  <form method="post" action="{% url 'status_add' %}">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="dlg-head"><h2>הוספת סטטוס חדש</h2><button class="iconbtn" type="button" data-close aria-label="סגירה">✕</button></div>
+    <label>שם הסטטוס<input type="text" name="name" maxlength="40" placeholder="לדוגמה: ממתין למסמכים" required></label>
+    <label style="margin-top:.8rem">סוג הסטטוס<select name="kind"><option value="normal">בתהליך</option><option value="won">נסגר (הצלחה)</option><option value="lost">לא רלוונטי</option></select></label>
+    <p class="meta" style="margin:.8rem 0 .3rem">צבע</p>
+    <div class="palette">{% for c in palette %}<label class="sw-pick"><input type="radio" name="color" value="{{ c }}" {% if forloop.counter == 8 %}checked{% endif %}><span style="background:{{ c }}"></span></label>{% endfor %}</div>
+    <button class="btn primary lg" type="submit" style="width:100%;margin-top:1rem">הוספה</button>
+  </form>
+  <h3 style="margin-top:1.2rem">הסטטוסים שלך</h3>
+  <ul class="deflist">{% for d in defs %}<li><span class="chip" style="--c:{{ d.color }}">{{ d.label }}</span><span class="faint">{{ d.get_kind_display }}</span>
+    {% if not d.builtin %}<form method="post" action="{% url 'status_delete' d.pk %}" data-confirm="למחוק את הסטטוס? הלידים שבו יחזרו ל״חדש״.">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><button class="btn sm danger" type="submit">מחיקה</button></form>{% else %}<span class="faint">מובנה</span>{% endif %}</li>{% endfor %}</ul>
+</dialog>
+{% endif %}
+{% endblock %}

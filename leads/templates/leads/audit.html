@@ -1,0 +1,21 @@
+{% extends "leads/base.html" %}
+{% block title %}יומן פעילות{% endblock %}
+{% block content %}
+<h1>יומן פעילות</h1>
+<form class="filters" method="get">
+  <select name="action" aria-label="סוג פעולה" data-autosubmit>
+    <option value="">כל הפעולות</option>
+    {% for a in actions %}<option value="{{ a }}" {% if a == action %}selected{% endif %}>{{ a }}</option>{% endfor %}
+  </select>
+</form>
+<div class="scroll"><table>
+  <thead><tr><th>מתי</th><th>מי</th><th>פעולה</th><th>פירוט</th></tr></thead>
+  <tbody>{% for e in page %}<tr><td>{{ e.created_at|date:"d/m/Y H:i" }}</td><td>{{ e.user.username|default:"—" }}</td><td>{{ e.action }}</td><td>{{ e.detail }}</td></tr>
+  {% empty %}<tr><td colspan="4" class="empty">אין רישומים.</td></tr>{% endfor %}</tbody>
+</table></div>
+<div class="pager">
+  {% if page.has_previous %}<a class="btn sm" href="?action={{ action }}&page={{ page.previous_page_number }}">הקודם</a>{% endif %}
+  <span class="meta">עמוד {{ page.number }} מתוך {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn sm" href="?action={{ action }}&page={{ page.next_page_number }}">הבא</a>{% endif %}
+</div>
+{% endblock %}

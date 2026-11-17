@@ -1,0 +1,44 @@
+<!-- Contact form for the website. Put it on any page. It remembers the campaign (UTM) details the visitor arrived with. -->
+<form id="lead-form" novalidate>
+  <input name="name" placeholder="שם מלא" required autocomplete="name">
+  <input name="phone" type="tel" placeholder="טלפון" required autocomplete="tel">
+  <input name="email" type="email" placeholder="אימייל (לא חובה)" autocomplete="email">
+  <select name="interest" aria-label="במה נוכל לעזור?">
+    <option value="">במה נוכל לעזור?</option>
+    <option value="mortgage">משכנתא או מחזור</option>
+    <option value="consolidation">איחוד הלוואות</option>
+    <option value="pension">משיכת כספי פנסיה</option>
+    <option value="enforcement">הוצאה לפועל</option>
+  </select>
+  <select name="call_time" aria-label="מתי נוח לכם?"><option value="any">כל שעה</option><option value="morning">בוקר</option><option value="noon">צהריים</option><option value="afternoon">אחה״צ</option><option value="evening">ערב</option></select>
+  <select name="owns_property" aria-label="האם אתם בעלי נכס?"><option value="">בעלות על נכס</option><option value="yes">כן</option><option value="no">לא</option><option value="joint">בבעלות משותפת</option></select>
+  <select name="enforcement_file" aria-label="תיק פתוח בהוצאה לפועל?"><option value="">תיק בהוצאה לפועל</option><option value="no">אין</option><option value="yes">יש</option><option value="unsure">לא בטוח</option></select>
+  <textarea name="message" placeholder="ספר לנו בקצרה"></textarea>
+  <input name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true"> <!-- bots fill this; people never see it -->
+  <label><input type="checkbox" name="consent" required> אני מאשר/ת שיצרו איתי קשר בנוגע לפנייתי (<a href="/privacy">מדיניות פרטיות</a>)</label>
+  <button type="submit">שליחה</button>
+  <p id="lead-msg" role="status"></p>
+</form>
+<script>
+(function () {
+  var KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term"];
+  try {                                   // keep the campaign details from the first page the visitor landed on
+    var q = new URLSearchParams(location.search);
+    KEYS.forEach(function (k) { if (q.get(k)) sessionStorage.setItem(k, q.get(k)); });
+    if (!sessionStorage.getItem("landing")) sessionStorage.setItem("landing", location.pathname);
+  } catch (e) {}
+  var f = document.getElementById("lead-form"), msg = document.getElementById("lead-msg");
+  f.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var d = Object.fromEntries(new FormData(f).entries());
+    d.consent = f.consent.checked;
+    try { KEYS.forEach(function (k) { d[k] = sessionStorage.getItem(k) || ""; }); d.page = sessionStorage.getItem("landing") || location.pathname; } catch (e) {}
+    fetch("/api/lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j.ok, j: j }; }); })
+      .then(function (x) {
+        if (x.ok) { f.reset(); msg.textContent = "תודה! נחזור אליך בהקדם."; }
+        else msg.textContent = x.j.error === "phone_required" ? "נא להזין מספר טלפון תקין." : x.j.error === "consent_required" ? "יש לאשר יצירת קשר." : "משהו השתבש. אפשר להתקשר אלינו ישירות.";
+      }).catch(function () { msg.textContent = "משהו השתבש. אפשר להתקשר אלינו ישירות."; });
+  });
+})();
+</script>

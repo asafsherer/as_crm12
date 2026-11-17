@@ -1,0 +1,99 @@
+{% extends "leads/base.html" %}
+{% block title %}דוחות ולוח בקרה{% endblock %}
+{% block content %}
+<div class="dash-head">
+  <h1>לוח בקרה</h1>
+  <form method="get" class="actions">
+    <label class="meta" for="days">תקופה</label>
+    <select name="days" id="days" data-autosubmit>
+      <option value="30" {% if days == 30 %}selected{% endif %}>30 ימים</option>
+      <option value="90" {% if days == 90 %}selected{% endif %}>90 ימים</option>
+      <option value="365" {% if days == 365 %}selected{% endif %}>שנה</option>
+    </select>
+    <noscript><button class="btn sm" type="submit">הצג</button></noscript>
+  </form>
+</div>
+
+<div class="grid kpis">
+  <div class="stat"><b>{{ kpi.leads }}</b><span>לידים</span></div>
+  <div class="stat"><b>{{ kpi.contact_rate|floatformat:0 }}%</b><span>טופלו (לא ״חדש״)</span></div>
+  <div class="stat"><b>{{ kpi.conversion|floatformat:1 }}%</b><span>הפכו לתיק</span></div>
+  {% if show_money %}
+  <div class="stat"><b>{{ kpi.open_cases }}</b><span>תיקים פתוחים</span></div>
+  <div class="stat"><b>{{ kpi.closed_n }}</b><span>נסגרו בתקופה</span></div>
+  <div class="stat big"><b>{{ kpi.closed_fees|floatformat:0 }} ₪</b><span>עלות תיקים שנסגרו בתקופה</span></div>
+  <div class="stat"><b>{% if kpi.avg_fee %}{{ kpi.avg_fee|floatformat:0 }} ₪{% else %}—{% endif %}</b><span>עלות ממוצעת לתיק</span></div>
+  <div class="stat"><b>{% if kpi.avg_days is not None %}{{ kpi.avg_days }}{% else %}—{% endif %}</b><span>ימים ממוצעים עד סגירה</span></div>
+  {% endif %}
+</div>
+
+{% if show_money %}
+<section class="panel" style="margin-top:1rem">
+  <h2 style="margin-top:0">יעד החודש</h2>
+  {% if goal %}
+  <div class="goal">
+    <div><span>הכנסות: <b>{{ goal.fees_actual|floatformat:0 }}</b> מתוך {{ goal.fees_target|floatformat:0 }} ₪</span>
+      <div class="track" role="progressbar" aria-valuenow="{{ goal.fees_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"><i style="width:{{ goal.fees_pct|stringformat:'.1f' }}%"></i></div></div>
+    <div><span>תיקים שנסגרו: <b>{{ goal.cases_actual }}</b> מתוך {{ goal.cases_target }}</span>
+      <div class="track" role="progressbar" aria-valuenow="{{ goal.cases_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"><i style="width:{{ goal.cases_pct|stringformat:'.1f' }}%"></i></div></div>
+  </div>
+  {% else %}<p class="sub">עוד לא הוגדר יעד לחודש הזה.</p>{% endif %}
+  {% if is_mgr %}
+  <form method="post" class="actions" style="margin-top:.6rem">{% csrf_token %}<input type="hidden" name="action" value="goal">
+    <label class="meta">יעד הכנסות (₪) <input type="text" name="fees_target" size="9" inputmode="numeric" value="{{ goal_obj.fees_target|default_if_none:''|floatformat:0 }}"></label>
+    <label class="meta">יעד תיקים <input type="text" name="cases_target" size="5" inputmode="numeric" value="{{ goal_obj.cases_target|default_if_none:'' }}"></label>
+    <button class="btn sm" type="submit">שמירת יעד</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+<div class="charts">
+  <section class="panel">
+    <h2 style="margin-top:0">מצב הלידים</h2>
+    {% for r in funnel %}<div class="hbar"><span class="hl">{{ r.label }}</span><span class="track"><i style="width:{{ r.pct|stringformat:'.1f' }}%"></i></span><b>{{ r.value }}</b></div>{% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0">לידים חדשים לפי שבוע</h2>
+    <div class="cols" role="img" aria-label="לידים חדשים ב-12 השבועות האחרונים">
+      {% for c in new_leads %}<div class="colw"><b>{{ c.value }}</b><div class="bar-area"><i style="height:{{ c.pct|stringformat:'.1f' }}%"></i></div><small>{{ c.label }}</small></div>{% endfor %}
+    </div>
+    <p class="sub" style="margin:.5rem 0 0">ייבוא מאקסל נספר ביום שבו בוצע.</p>
+  </section>
+
+  {% if show_money %}
+  <section class="panel">
+    <h2 style="margin-top:0">תיקים לפי שלב</h2>
+    {% for r in stages %}<div class="hbar"><span class="hl">{{ r.label }}</span><span class="track"><i style="width:{{ r.pct|stringformat:'.1f' }}%"></i></span><b>{{ r.value }}</b></div>{% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0">תיקים לפי סוג</h2>
+    {% for r in types %}<div class="hbar"><span class="hl">{{ r.label }}</span><span class="track"><i style="width:{{ r.pct|stringformat:'.1f' }}%"></i></span><b>{{ r.value }}</b></div>{% endfor %}
+  </section>
+
+  <section class="panel wide">
+    <h2 style="margin-top:0">עלות תיקים שנסגרו, 6 חודשים אחרונים</h2>
+    <div class="cols" role="img" aria-label="הכנסות לפי חודש, שולם מול ממתין">
+      {% for c in fees_cols %}<div class="colw"><b>{{ c.paid|add:c.unpaid|floatformat:0 }}</b>
+        <div class="bar-area stack"><i class="unpaid" style="height:{{ c.unpaid_pct|stringformat:'.1f' }}%"></i><i class="paid" style="height:{{ c.paid_pct|stringformat:'.1f' }}%"></i></div><small>{{ c.label }}</small></div>{% endfor %}
+    </div>
+    <p class="legend"><span class="sw paid"></span> שולם <span class="sw unpaid"></span> ממתין לתשלום</p>
+    <div class="grid" style="margin-top:.5rem">
+      <div class="stat"><b>{{ pipeline|floatformat:0 }} ₪</b><span>צפי: עלות תיקים פתוחים</span></div>
+      <div class="stat"><b>{{ approved|floatformat:0 }} ₪</b><span>מתוכם תיקים שאושרו</span></div>
+    </div>
+    <p class="sub" style="margin:.4rem 0 0">הצפי מחושב רק מתיקים שהוזנה בהם עלות.</p>
+  </section>
+  {% endif %}
+</div>
+
+{% if is_mgr and team %}
+<h2>ביצועי הצוות <span class="meta">(תקופה: {{ days }} ימים)</span></h2>
+<div class="scroll"><table>
+  <thead><tr><th>שם</th><th>תפקיד</th><th>לידים</th><th>טופלו</th><th>מעוניינים ומעלה</th><th>תיקים פתוחים</th><th>נסגרו</th><th>עלות שנסגרה</th></tr></thead>
+  <tbody>{% for t in team %}<tr><td>{{ t.name }}</td><td>{{ t.role }}</td><td>{{ t.leads }}</td><td>{{ t.contacted }}</td><td>{{ t.interested }}</td><td>{{ t.open }}</td><td>{{ t.closed }}</td><td>{{ t.fees|floatformat:0 }} ₪</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+venv/
+db.sqlite3
+.secret_key
+.admin_created
+__pycache__/
+staticfiles/
+ai_key.txt
+
+.field_key
+.hash_key
+backups/
+.revital_set
+media/

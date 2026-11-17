@@ -1,0 +1,32 @@
+{% extends "leads/base.html" %}
+{% block title %}תיקים{% endblock %}
+{% block content %}
+<h1>תיקים</h1>
+<p><a class="btn primary" href="{% url 'case_create' %}">+ תיק חדש</a></p>
+<form class="filters" method="get">
+  <select name="type" aria-label="סוג תיק" data-autosubmit>
+    <option value="">כל סוגי התיקים</option>
+    {% for v, l in case_types %}<option value="{{ v }}" {% if ctype == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+  </select>
+  <noscript><button class="btn" type="submit">סינון</button></noscript>
+  {% if cancelled %}<span class="meta">{{ cancelled }} תיקים בוטלו (לא מוצגים)</span>{% endif %}
+</form>
+<p class="sub">אפשר גם לפתוח תיק מתוך כרטיס ליד קיים.</p>
+<div class="board">
+  {% for col in columns %}
+  <section class="col" aria-label="{{ col.label }}">
+    <header><b>{{ col.label }}</b> <span class="meta">{{ col.count }}</span>
+      {% if col.fees %}<small class="meta">{{ col.fees|floatformat:0 }} ₪</small>{% endif %}</header>
+    {% for c in col.cases %}
+    <a class="kcard" href="{% url 'case_detail' c.pk %}">
+      <b>{{ c.lead.full_name }}</b>
+      <span class="meta">{{ c.get_case_type_display }}</span>
+      <span class="meta">{% if c.workspace == ws %}{% if c.amount %}{{ c.amount|floatformat:0 }} ₪{% endif %}{% if c.fee %} · עלות {{ c.fee|floatformat:0 }} ₪{% endif %}{% endif %}</span>
+      {% if col.value == 'closed' and c.fee %}<span class="badge {% if c.fee_paid %}s-interested{% else %}s-no_answer{% endif %}">{% if c.fee_paid %}שולם{% else %}ממתין לתשלום{% endif %}</span>{% endif %}
+      {% if c.workspace != ws %}<span class="tag">משותף איתי</span>{% elif c.owner %}<small class="meta">{{ c.owner.username }}</small>{% endif %}
+    </a>
+    {% empty %}<p class="empty">אין תיקים</p>{% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

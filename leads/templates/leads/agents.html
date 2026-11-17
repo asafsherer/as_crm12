@@ -1,0 +1,52 @@
+{% extends "leads/base.html" %}
+{% block title %}העובדים{% endblock %}
+{% block content %}
+<h1>העובדים</h1>
+<p class="sub">עובדות דיגיטליות שמכינות, בודקות ומסכמות. הן <b>מציעות בלבד</b>: כל החישובים נעשים בקוד, ושום הודעה לא נשלחת ושום תיק לא נסגר בלי אישור שלך.</p>
+{% if not ai_enabled %}<div class="msg warning">מפתח AI לא מוגדר. העובדים פועלים במצב חישוב בלבד, בלי ניסוח חופשי. להפעלה: ai_key.txt ליד manage.py.</div>{% endif %}
+
+{% if me.is_manager %}
+<section class="panel">
+  <div class="dash-head">
+    <h2 style="margin:0">מנהל תפעול: סיכום ובדיקת עבודה</h2>
+    <form method="post" action="{% url 'review_run' %}">{% csrf_token %}<button class="btn primary" type="submit">הרצת בדיקה עכשיו</button></form>
+  </div>
+  {% if review %}
+    <p class="meta">הורץ {{ review.created_at|date:"d/m/Y H:i" }} · {% if review.used_ai %}נוסח ע״י AI מתוך ממצאים שחושבו בקוד{% else %}סיכום מחושב בקוד{% endif %}</p>
+    <p style="font-size:1.05rem">{{ review.summary }}</p>
+    {% if review.output.unverified %}<div class="msg warning">הסיכום מזכיר מספרים שלא מופיעים בנתונים ({{ review.output.unverified|join:", " }}). אל תסתמך עליהם, ובדוק בטבלה.</div>{% endif %}
+    {% if review.output.issues %}
+    <div class="scroll"><table>
+      <thead><tr><th>חומרה</th><th>תיק</th><th>ממצא</th></tr></thead>
+      <tbody>{% for i in review.output.issues %}
+        <tr>
+          <td>{% if i.sev == 'high' %}<span class="tag urgent">חמור</span>{% elif i.sev == 'medium' %}<span class="tag">בינוני</span>{% elif i.sev == 'low' %}<span class="badge">נמוך</span>{% else %}<span class="badge s-closed">לידיעה</span>{% endif %}</td>
+          <td><a href="{% url 'case_detail' i.case_id %}">{{ i.title }}</a></td>
+          <td>{{ i.text }}</td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="empty">לא נמצאו חריגים.</p>{% endif %}
+  {% else %}<p class="empty">הבדיקה עדיין לא הורצה.</p>{% endif %}
+</section>
+
+<section class="panel" style="margin-top:1.1rem">
+  <div class="dash-head">
+    <h2 style="margin:0">מנהל עסקי: עלויות, המרות והכנסות</h2>
+    <a class="btn primary" href="{% url 'business' %}">לדוח המלא ולתוכנית</a>
+  </div>
+  {% if biz %}<p class="meta">הורץ {{ biz.created_at|date:"d/m/Y H:i" }}</p><p>{{ biz.summary }}</p>{% else %}<p class="empty">הניתוח העסקי עדיין לא הורץ.</p>{% endif %}
+</section>
+{% endif %}
+
+<h2>דוחות המתפעלת האחרונים</h2>
+{% if ops_runs %}
+<div class="scroll"><table>
+  <thead><tr><th>תיק</th><th>מסמכים חסרים</th><th>הורץ</th><th></th></tr></thead>
+  <tbody>{% for r in ops_runs %}
+    <tr><td>{{ r.case.get_case_type_display }} · {{ r.case.lead.full_name }}</td>
+        <td>{% if r.facts.missing %}<span class="tag">{{ r.facts.missing|length }}</span>{% else %}<span class="badge s-interested">הכול התקבל</span>{% endif %}</td>
+        <td class="meta">{{ r.created_at|date:"d/m/Y H:i" }}</td>
+        <td><a href="{% url 'case_ops' r.case_id %}">פתיחה</a></td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<p class="empty">עוד לא הורצה מתפעלת. פתח תיק ולחץ על "פתיחת דוח המתפעלת".</p>{% endif %}
+{% endblock %}

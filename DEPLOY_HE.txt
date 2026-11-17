@@ -1,0 +1,30 @@
+העלאת ה-CRM לאונליין: crm.as-finances.com
+==========================================
+אחרי זה זה עובד מכל מחשב וטלפון (גם של אמא) דרך הדפדפן, בלי התקנה. הקבצים ב-Cloudflare R2.
+אל תכניס לידים אמיתיים לפני שלב 7 (התחברות דו-שלבית).
+
+1. GitHub: חשבון (asafsherer98@gmail.com), מאגר פרטי חדש, והעלאת תוכן התיקייה as_crm (הכפתור Add file > Upload files).
+2. Railway (railway.com): New Project > Deploy from GitHub repo > בחר את המאגר. הקובץ railway.json מגדיר הכול.
+3. באותו פרויקט: New > Database > PostgreSQL. ב-Variables של האפליקציה: DATABASE_URL = ${{Postgres.DATABASE_URL}}
+4. Cloudflare > R2: צור Bucket פרטי (למשל as-crm-files), ו-Manage API Tokens > Object Read & Write.
+5. ב-Variables של האפליקציה ב-Railway:
+   DEBUG=0
+   SECRET_KEY=<מחרוזת אקראית ארוכה>
+   ALLOWED_HOSTS=crm.as-finances.com
+   CSRF_TRUSTED_ORIGINS=https://crm.as-finances.com
+   R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+   R2_BUCKET=as-crm-files
+   R2_ACCESS_KEY_ID=...    R2_SECRET_ACCESS_KEY=...
+   LEAD_INTAKE_TOKEN=<מחרוזת אקראית>
+   MAIL_IMAP_USER=a.sfinances1@gmail.com   MAIL_IMAP_PASSWORD=<App Password של גוגל>   (אופציונלי, למיילים)
+   ANTHROPIC_API_KEY=...  (אופציונלי)
+6. דומיין: ב-Railway > Settings > Networking > Custom Domain: crm.as-finances.com. Railway נותן ערך CNAME.
+   ב-Cloudflare > DNS מוסיפים CNAME בשם crm עם הערך הזה (Proxy כבוי בהתחלה).
+7. משתמש ראשון: בטרמינל של Railway:  python manage.py createsuperuser
+   בכניסה הראשונה סורקים QR באפליקציית Authenticator (2FA חובה).
+8. אמא: תפריט "משתמשים" > הוספה: תפקיד מנהל, מרחב עבודה הוצל"פ. היא נכנסת מהמחשב שלה לכתובת crm.as-finances.com.
+9. אתר: ב-Cloudflare Pages של האתר הוסף CRM_URL=https://crm.as-finances.com ו-INTAKE_TOKEN (אותו ערך כמו LEAD_INTAKE_TOKEN), ראה website_connect/README_HE.txt.
+10. גיבוי יומי: משימה מתוזמנת ב-Railway שמריצה  python manage.py backup
+
+מסמכים: מהטלפון כפתור "בחר קובץ" מציע צילום או סריקה ישירות. וואטסאפ: כפתור ליד כל ליד ותיק (פותח שיחה עם הלקוח).
+אחרי שתעלה ל-GitHub ותחבר ל-Railway, שלח לי מה מופיע במסך ואעבור איתך צעד-צעד.

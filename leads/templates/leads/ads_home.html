@@ -1,0 +1,31 @@
+{% extends "leads/base.html" %}
+{% block title %}דוחות גוגל אדס{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>דוחות גוגל אדס</h1><p class="sub">מעלים נתוני קמפיין בלי חיבור ל-Google Ads. המספרים מחושבים בקוד ומשווים ללידים האמיתיים ב-CRM.</p></div>
+  <a class="btn" href="{% url 'campaigner' %}">חזרה לקמפיינר</a>
+</div>
+<section class="panel">
+  <h2 style="margin-top:0">דוח חדש</h2>
+  <form method="post" action="{% url 'ads_upload' %}" enctype="multipart/form-data">{% csrf_token %}
+    <div class="actions" style="margin-bottom:.6rem">
+      <label>מתאריך<br><input type="date" name="start" value="{{ default_start|date:'Y-m-d' }}"></label>
+      <label>עד תאריך<br><input type="date" name="end" value="{{ default_end|date:'Y-m-d' }}"></label>
+      <label>שם (אופציונלי)<br><input type="text" name="title" maxlength="120" placeholder="למשל: נובמבר"></label>
+    </div>
+    <label>קובץ מ-Google Ads (CSV או Excel)<br><input type="file" name="table" accept=".csv,.tsv,.txt,.xlsx"></label>
+    <p class="meta" style="margin:.2rem 0 .8rem">ב-Google Ads: קמפיינים ← בחר טווח תאריכים ← סמל ההורדה ← CSV. העמודות הנדרשות: קמפיין, עלות. מומלץ גם קליקים, חשיפות והמרות.</p>
+    <label>צילומי מסך (עד 4, JPG או PNG){% if not ai_enabled %} <span class="meta">· דורש מפתח AI, כרגע כבוי</span>{% endif %}<br>
+      <input type="file" name="shots" multiple accept="image/png,image/jpeg" {% if not ai_enabled %}disabled{% endif %}></label>
+    <p class="meta" style="margin:.2rem 0 .8rem">ה-AI קורא את הטבלה לטיוטה, ואתה בודק ומתקן אותה לפני שמשהו מחושב. אל תצלם מסכים עם פרטי לקוחות.</p>
+    <label>הערות מהקמפיין (מילות מפתח, נוסח מודעות, תקציב: שורה לכל פריט)<br><textarea name="notes" rows="3" placeholder="אופציונלי"></textarea></label>
+    <button class="btn primary" type="submit" style="margin-top:.6rem">יצירת דוח</button>
+  </form>
+</section>
+<section class="panel">
+  <h2 style="margin-top:0">דוחות קודמים</h2>
+  {% for r in reports %}<div class="doc"><a href="{% url 'ads_report' r.pk %}">{{ r.title|default:"דוח" }} · {{ r.period_start|date:"d/m/Y" }}–{{ r.period_end|date:"d/m/Y" }}</a>
+    <span class="meta">{{ r.get_status_display }} · {{ r.rows|length }} קמפיינים</span></div>
+  {% empty %}<p class="sub">עוד אין דוחות.</p>{% endfor %}
+</section>
+{% endblock %}

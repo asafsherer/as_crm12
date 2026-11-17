@@ -1,0 +1,67 @@
+{% extends "leads/base.html" %}
+{% load crm_tags %}
+{% block title %}היום{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ greeting }}, {{ person }}</h1><p class="sub">{{ today|date:"j בF Y" }} · {{ total }} לידים</p></div>
+  <div class="actions"><a class="btn primary" href="{% url 'lead_create' %}">+ ליד חדש</a><a class="btn" href="{% url 'queue' %}">למי לחייג</a></div></div>
+
+<div class="hero-row">
+  <div class="revenue">
+    <span class="rev-label">{{ money_label }} שהתקבלו החודש</span>
+    <b class="rev-num">₪{{ month_paid|money }}</b>
+    <span class="rev-sub">צפוי להתקבל: ₪{{ expected|money }} · {{ month_cases }} תיקים נסגרו החודש{% if month_target %} · יעד ₪{{ month_target|money }}{% endif %}</span>
+    {% if month_pct is not None %}<span class="rev-track"><i style="width:{{ month_pct }}%"></i></span>{% endif %}
+  </div>
+  <a class="today-card" href="{% url 'queue' %}"><b>{{ callbacks }}</b><span>חזרות ללקוחות להיום</span></a>
+  <a class="today-card" href="{% url 'tasks' %}"><b>{{ tasks_due|length }}</b><span>משימות להיום</span></a>
+  {% if me.role != 'sales' %}<a class="today-card hot" href="{% url 'lead_list' %}?web=1&status=new"><b>{{ new_web }}</b><span>לידים חדשים מהאתר</span></a>{% endif %}
+</div>
+
+<div class="chips">
+  <a class="chip-all on" href="{% url 'lead_list' %}">הכל <b>{{ total }}</b></a>
+  {% for c in chips %}<a class="fchip" style="--c:{{ c.def.color }}" href="{% url 'lead_list' %}?status={{ c.def.key }}"><i></i>{{ c.def.label }} <b>{{ c.count }}</b></a>{% endfor %}
+</div>
+
+{% if shared %}<div class="stat"><b>{{ shared|length }}</b><span>תיקים משותפים איתי</span></div>{% endif %}
+</div>
+
+{% if shared %}
+<h2>משותף איתי</h2>
+<div class="cards">
+  {% for s in shared %}
+  <a class="card" href="{% url 'case_detail' s.case.pk %}" style="text-decoration:none;color:inherit">
+    <div class="card-head"><b>{{ s.case.lead.full_name }}</b><span class="meta">{{ s.case.get_case_type_display }} · שותף על ידי {{ s.share.shared_by.username }}</span>
+      {% if s.new %}<span class="dot hot">{{ s.new }} חדש</span>{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>משימות</h2>
+{% include "leads/_task_list.html" with items=tasks_due empty_text="אין משימות שמחכות להיום." %}
+{% if tasks_later %}<p class="sub" style="margin-top:1rem">בהמשך</p>{% include "leads/_task_list.html" with items=tasks_later %}{% endif %}
+<form method="post" action="{% url 'tasks' %}" class="actions" style="margin-top:.8rem">{% csrf_token %}
+  <input type="hidden" name="next" value="{% url 'home' %}">
+  <input type="text" name="title" placeholder="משימה חדשה" required aria-label="משימה" size="26">
+  <input type="date" name="due_on" aria-label="תאריך יעד">
+  <select name="priority" aria-label="עדיפות"><option value="normal">רגיל</option><option value="urgent">דחוף</option></select>
+  <button class="btn primary" type="submit">הוספה</button>
+</form>
+
+{% if me.role != 'sales' %}
+<h2>תיקים וכספים</h2>
+<div class="grid">
+  <a class="stat" href="{% url 'case_board' %}"><b>{{ open_cases }}</b><span>תיקים פתוחים</span></a>
+  <a class="stat" href="{% url 'case_board' %}"><b>{{ closed_cases }}</b><span>תיקים שנסגרו</span></a>
+  <div class="stat"><b>{{ fees_total|money }} ₪</b><span>עלות תיקים שנסגרו</span></div>
+  <div class="stat"><b>{{ fees_unpaid|money }} ₪</b><span>טרם שולם</span></div>
+</div>
+{% endif %}
+
+<h2>עדכונים אחרונים</h2>
+{% if recent %}
+<div class="panel"><ul class="timeline">
+{% for n in recent %}<li class="{{ n.kind }}">{% if n.case %}<a href="{% url 'case_detail' n.case.pk %}">{{ n.lead.full_name }}</a>{% else %}<a href="{% url 'lead_detail' n.lead.pk %}">{{ n.lead.full_name }}</a>{% endif %}: {% if n.channel %}<span class="badge">{{ n.get_channel_display }}</span> {% endif %}{{ n.text|linebreaksbr }}<br><small>{{ n.created_at|date:"d/m/Y H:i" }}{% if n.author %} · {{ n.author.username }}{% endif %}</small></li>{% endfor %}
+</ul></div>
+{% else %}<p class="empty">עוד אין פעילות. היכנס ל״למי לחייג״ כדי להתחיל.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "leads/base.html" %}
+{% block title %}ייבוא לידים{% endblock %}
+{% block content %}
+<h1>ייבוא לידים מאקסל</h1>
+<div class="panel">
+  <p>העלה קובץ אקסל (xlsx) עם העמודות: Client_SSN, Client_FName, Client_LName, Client_Birth_Day, Client_Age, Client_Gender, Client_City, Client_Address, Client_Address_Num, Client_Zip, Client_Phone, Client_Phone_Sec, Client_Email.</p>
+  <p class="sub">כפילויות מזוהות לפי תעודת זהות ומאוחדות. ליד שכבר קיים לא יידרס: הסטטוס וההערות נשמרים, ורק שדות ריקים מתמלאים.</p>
+  <form method="post" enctype="multipart/form-data" class="actions">{% csrf_token %}
+    <input type="file" name="file" accept=".xlsx" required aria-label="קובץ אקסל">
+    <button class="btn primary" type="submit">ייבוא</button>
+  </form>
+</div>
+{% if result %}
+<h2>תוצאות הייבוא</h2>
+<div class="grid">
+  <div class="stat"><b>{{ result.rows }}</b><span>שורות בקובץ</span></div>
+  <div class="stat"><b>{{ result.duplicates_removed }}</b><span>כפילויות שאוחדו</span></div>
+  <div class="stat big"><b>{{ result.created }}</b><span>לידים חדשים</span></div>
+  <div class="stat"><b>{{ result.updated }}</b><span>לידים קיימים שעודכנו</span></div>
+  <div class="stat"><b>{{ result.no_phone }}</b><span>בלי טלפון</span></div>
+  <div class="stat"><b>{{ result.invalid_id }}</b><span>ת״ז לא תקינה</span></div>
+</div>
+<p><a class="btn primary" href="{% url 'lead_list' %}">לרשימת הלידים</a></p>
+{% endif %}
+{% endblock %}

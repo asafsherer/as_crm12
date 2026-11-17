@@ -1,0 +1,31 @@
+{% extends "leads/base.html" %}
+{% block title %}הודעות{% endblock %}
+{% block content %}
+<h1>הודעות</h1>
+<div class="two" style="grid-template-columns:minmax(180px,.4fr) 1fr">
+  <section class="panel">
+    {% for u, n in people %}
+    <a class="person {% if other and other.pk == u.pk %}on{% endif %}" href="?with={{ u.pk }}">{{ u.get_full_name|default:u.username }} <span class="meta">{{ u.profile.get_workspace_display }}</span>{% if n %}<span class="dot hot">{{ n }}</span>{% endif %}</a>
+    {% empty %}<p class="empty">אין עוד משתמשים במערכת.</p>{% endfor %}
+  </section>
+  <section class="panel">
+    {% if other %}
+    <h2 style="margin-top:0">שיחה עם {{ other.get_full_name|default:other.username }}</h2>
+    <div class="thread">
+      {% for m in thread %}
+      <div class="bubble {% if m.sender_id == user.id %}mine{% endif %}">
+        {{ m.text|linebreaksbr }}
+        {% if m.case %}<br><a href="{% url 'case_detail' m.case.pk %}">פתח את התיק</a>{% endif %}
+        <small>{{ m.created_at|date:"d/m H:i" }}</small>
+      </div>
+      {% empty %}<p class="empty">עוד אין הודעות.</p>{% endfor %}
+    </div>
+    <form method="post" class="actions" style="margin-top:.8rem">{% csrf_token %}
+      <input type="hidden" name="to" value="{{ other.pk }}">
+      <textarea name="text" required aria-label="הודעה" placeholder="כתוב הודעה" style="min-height:60px"></textarea>
+      <button class="btn primary" type="submit">שליחה</button>
+    </form>
+    {% else %}<p class="empty">בחר אדם מהרשימה כדי לראות את השיחה.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

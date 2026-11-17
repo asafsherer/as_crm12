@@ -1,0 +1,61 @@
+{% extends "leads/base.html" %}
+{% block title %}מייל{% endblock %}
+{% block content %}
+<p><a href="{% url 'mail_home' %}" data-back>← חזרה למיילים</a></p>
+<div class="two">
+  <section class="panel">
+    <h1 style="margin-top:0;font-size:1.35rem">{{ m.subject|default:"(ללא נושא)" }}</h1>
+    <dl class="dl">
+      <dt>מאת</dt><dd><span class="ltr">{{ m.from_addr }}</span></dd>
+      <dt>אל</dt><dd><span class="ltr">{{ m.to_addrs|default:"—" }}</span></dd>
+      <dt>תאריך</dt><dd>{{ m.sent_at|date:"d/m/Y H:i" }}</dd>
+      <dt>סוג</dt><dd>{{ m.get_category_display }} · {{ m.get_direction_display }}</dd>
+      <dt>איש קשר</dt><dd>{% if m.lead %}<a href="{% url 'lead_detail' m.lead.pk %}">{{ m.lead.full_name }}</a>{% else %}<span class="tag">לא משויך</span>{% endif %}</dd>
+      <dt>תיק</dt><dd>{% if m.case %}<a href="{% url 'case_detail' m.case.pk %}">{{ m.case.get_case_type_display }}</a>{% else %}—{% endif %}</dd>
+      <dt>מצב</dt><dd>{{ m.get_status_display }}</dd>
+    </dl>
+    {% if hint_skipped %}<div class="msg warning" style="margin-top:1rem">{{ hint_skipped }} קבצים מצורפים נחסמו בבדיקת האבטחה (סוג קובץ לא תואם או וירוס).</div>{% endif %}
+    <pre class="mailbody">{{ m.body|default:"(אין טקסט)" }}</pre>
+  </section>
+
+  <section class="panel">
+    {% if atts %}
+    <h2 style="margin-top:0">קבצים מצורפים</h2>
+    {% if hint_fills %}<div class="msg success">הקבצים כאן משלימים חסר בתיק: {{ hint_fills|join:", " }}</div>{% endif %}
+    <form method="post" action="{% url 'mail_action' m.pk %}">{% csrf_token %}<input type="hidden" name="action" value="file">
+      {% for a in atts %}
+      <div class="doc">
+        {% if a.document %}<span class="badge s-closed">נשמר בתיק</span>{% else %}<label class="check"><input type="checkbox" name="use_{{ a.pk }}" checked></label>{% endif %}
+        <span class="meta">{{ a.original_name }} · {{ a.size|filesizeformat }}</span>
+        {% if not a.document %}<select name="cat_{{ a.pk }}" aria-label="סוג מסמך">{% for v, l in categories %}<option value="{{ v }}" {% if v == a.suggested_category %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>{% endif %}
+      </div>
+      {% endfor %}
+      <label style="margin-top:.8rem">שמירה בתיק
+        <select name="case" required>{% for c in cases %}<option value="{{ c.pk }}" {% if m.case_id == c.pk %}selected{% endif %}>{{ c.lead.full_name }} · {{ c.get_case_type_display }}</option>{% empty %}<option value="">אין תיק זמין</option>{% endfor %}</select></label>
+      <button class="btn primary" type="submit" style="margin-top:.6rem" {% if not cases %}disabled{% endif %}>שמירת הקבצים שסימנתי בתיק</button>
+      <p class="meta">הסוג מוצע לפי שם הקובץ. אפשר לשנות לפני השמירה.</p>
+    </form>
+    <hr>
+    {% endif %}
+
+    {% if not m.lead %}
+    <h3>שיוך לאיש קשר</h3>
+    <form method="post" action="{% url 'mail_action' m.pk %}" class="actions">{% csrf_token %}<input type="hidden" name="action" value="assign">
+      <select name="lead" required aria-label="ליד">{% for l in leads %}<option value="{{ l.pk }}">{{ l.full_name }}{% if l.phone %} · {{ l.phone }}{% endif %}</option>{% endfor %}</select>
+      <button class="btn" type="submit">שיוך</button>
+    </form>
+    {% endif %}
+
+    <h3>העברה למשתמש אחר</h3>
+    <form method="post" action="{% url 'mail_action' m.pk %}" class="actions">{% csrf_token %}<input type="hidden" name="action" value="route">
+      <select name="user" required aria-label="משתמש">{% for u in others %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.profile.get_workspace_display }})</option>{% endfor %}</select>
+      <button class="btn" type="submit">העברה</button>
+    </form>
+
+    <div class="actions" style="margin-top:1.2rem">
+      <form method="post" action="{% url 'mail_action' m.pk %}">{% csrf_token %}<input type="hidden" name="action" value="{% if m.status == 'ignored' %}reopen{% else %}ignore{% endif %}"><button class="btn" type="submit">{% if m.status == 'ignored' %}החזרה לחדשים{% else %}סימון כמטופל / התעלמות{% endif %}</button></form>
+      <form method="post" action="{% url 'mail_action' m.pk %}" data-confirm="למחוק את המייל ואת הקבצים המצורפים שלא נשמרו בתיק? אי אפשר לשחזר.">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="btn danger" type="submit">מחיקה</button></form>
+    </div>
+  </section>
+</div>
+{% endblock %}

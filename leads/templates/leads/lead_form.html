@@ -1,0 +1,24 @@
+{% extends "leads/base.html" %}
+{% block title %}{% if mode == 'edit' %}עריכת לקוח{% else %}ליד חדש{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{% if mode == 'edit' %}{% url 'lead_detail' lead.pk %}{% else %}{% url 'lead_list' %}{% endif %}">חזרה</a></p>
+<h1>{% if mode == 'edit' %}עריכת {{ lead.full_name }}{% else %}הוספת ליד ידנית{% endif %}</h1>
+<form method="post" class="panel formgrid">{% csrf_token %}
+  <label>שם פרטי *<br><input type="text" name="first_name" value="{{ v.first_name|default:'' }}" required></label>
+  <label>שם משפחה<br><input type="text" name="last_name" value="{{ v.last_name|default:'' }}"></label>
+  <label>תעודת זהות *<br><input type="text" name="national_id" value="{{ v.national_id|default:'' }}" inputmode="numeric" maxlength="9" required></label>
+  <label>טלפון נייד{% if mode == 'create' %} *{% endif %}<br><input type="text" name="phone" value="{{ v.phone|default:'' }}" inputmode="tel"></label>
+  <label>טלפון נוסף<br><input type="text" name="phone2" value="{{ v.phone2|default:'' }}" inputmode="tel"></label>
+  <label>אימייל<br><input type="text" name="email" value="{{ v.email|default:'' }}"></label>
+  <label>תאריך לידה<br><input type="date" name="birth_date" value="{{ v.birth_date|default:'' }}"></label>
+  <label>גיל<br><input type="text" name="age" value="{{ v.age|default_if_none:'' }}" inputmode="numeric" maxlength="3"></label>
+  <label>מין<br><input type="text" name="gender" value="{{ v.gender|default:'' }}"></label>
+  <label>עיר<br><input type="text" name="city" value="{{ v.city|default:'' }}"></label>
+  <label>רחוב<br><input type="text" name="street" value="{{ v.street|default:'' }}"></label>
+  <label>מספר בית<br><input type="text" name="house_number" value="{{ v.house_number|default:'' }}"></label>
+  <label>מיקוד<br><input type="text" name="zip_code" value="{{ v.zip_code|default:'' }}"></label>
+  <label>מקור הליד (קמפיין / ערוץ)<br><input type="text" name="source" value="{{ v.source|default:'' }}" maxlength="60" placeholder="למשל: פייסבוק, הפניה, גוגל"></label>
+  {% if mode == 'create' %}<label style="grid-column:1/-1">הערה ראשונה (מה הלקוח מבקש?)<br><textarea name="note"></textarea></label>{% endif %}
+  <div style="grid-column:1/-1"><button class="btn primary" type="submit">שמירה</button></div>
+</form>
+{% endblock %}

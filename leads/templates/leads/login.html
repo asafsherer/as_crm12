@@ -1,0 +1,24 @@
+{% extends "leads/base.html" %}
+{% load static %}
+{% block title %}כניסה{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <section class="login-hero" aria-hidden="true">
+    <img class="logo big" src="{% static 'leads/logo.png' %}" alt="" width="152" height="152">
+    <h2>A.S Finances</h2>
+    <p>ניהול לידים ותיקים — משכנתאות, הלוואות, פיצויים והוצאה לפועל — במקום אחד, מאובטח ומסודר.</p>
+    <ul><li>הצפנת נתונים ומסמכים</li><li>כניסה דו-שלבית</li><li>יומן פעילות מלא</li></ul>
+  </section>
+  <div class="login">
+    <div class="login-mark"><img src="{% static 'leads/logo.png' %}" alt="A.S Finances"></div>
+    <h1 class="login-title">ברוכים הבאים</h1><p class="sub">כניסה למערכת הניהול</p>
+    <form method="post" class="panel">
+      {% csrf_token %}
+      {% for e in form.non_field_errors %}<div class="msg error" role="alert">{{ e }}</div>{% endfor %}
+      <label>שם משתמש{{ form.username }}</label>
+      <label>סיסמה{{ form.password }}</label>
+      <button class="btn primary lg" type="submit">כניסה</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

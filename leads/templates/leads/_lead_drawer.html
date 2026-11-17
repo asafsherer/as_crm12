@@ -1,0 +1,47 @@
+{% load crm_tags %}
+<div class="drawer-head">
+  <button class="iconbtn" type="button" data-drawer-close aria-label="סגירה">✕</button>
+  <div class="dname"><span class="avatar lg">{{ lead.first_name|initial }}</span><div><h2>{{ lead.full_name }}</h2>
+    <span class="chip" style="--c:{% status_color lead %}">{% status_label lead %}</span></div></div>
+</div>
+<div class="dactions">
+  {% if lead.whatsapp_url %}<a class="dbtn wa" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">וואטסאפ</a>{% endif %}
+  {% if lead.best_phone %}<a class="dbtn" href="tel:{{ lead.best_phone }}">התקשר</a>{% endif %}
+  {% if lead.email %}<a class="dbtn" href="mailto:{{ lead.email }}">מייל</a>{% endif %}
+</div>
+<div class="dtabs" role="tablist"><button type="button" class="on" data-tab="d-info">פרטי ליד</button><button type="button" data-tab="d-log">יומן פעילות</button><button type="button" data-tab="d-mail">מיילים{% if emails %} ({{ emails|length }}){% endif %}</button></div>
+
+<section id="d-info" class="dpane on">
+  <dl class="dl">
+    <dt>טלפון</dt><dd><span class="ltr">{{ lead.best_phone|default:"—" }}</span></dd>
+    <dt>אימייל</dt><dd><span class="ltr">{{ lead.email|default:"—" }}</span></dd>
+    <dt>מקור הליד</dt><dd>{{ lead.source|default:"—" }}{% if lead.campaign %} · {{ lead.campaign }}{% endif %}</dd>
+    {% if lead.utm_term %}<dt>מילת חיפוש</dt><dd>{{ lead.utm_term }}</dd>{% endif %}
+    <dt>תאריך ושעה</dt><dd>{{ lead.intake_at|default:lead.created_at|date:"d/m/Y H:i" }}</dd>
+    {% if lead.lead_score is not None %}<dt>ניקוד</dt><dd>{{ lead.lead_score }} מתוך 100</dd>{% endif %}
+    {% if lead.form_message %}<dt>הודעה מהאתר</dt><dd>{{ lead.form_message|linebreaksbr }}</dd>{% endif %}
+    <dt>עיר</dt><dd>{{ lead.city|default:"—" }}</dd>
+    <dt>מטפל</dt><dd>{{ lead.assigned_to.username|default:"—" }}</dd>
+  </dl>
+  <form method="post" action="{% url 'quick_status' lead.pk %}" class="dform">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
+    <label>סטטוס<select name="status">{% for d in defs %}<option value="{{ d.key }}" {% if lead.status == d.key %}selected{% endif %}>{{ d.label }}</option>{% endfor %}</select></label>
+    <label>חזרה / פגישה בתאריך<input type="date" name="callback_on" value="{{ lead.callback_on|date:'Y-m-d' }}"></label>
+    <button class="btn primary" type="submit">שמירה</button>
+  </form>
+  {% if cases %}<h3>תיקים</h3><ul class="plain">{% for c in cases %}<li><a href="{% url 'case_detail' c.pk %}">{{ c.get_case_type_display }}</a> <span class="meta">· {{ c.get_stage_display }}</span></li>{% endfor %}</ul>{% endif %}
+  <p style="margin-top:1rem"><a class="btn" href="{% url 'lead_detail' lead.pk %}">לכרטיס המלא</a></p>
+</section>
+
+<section id="d-log" class="dpane">
+  <form method="post" action="{% url 'lead_note_quick' lead.pk %}" class="dform">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
+    <textarea name="text" placeholder="הוסף הערה..." aria-label="הערה" required></textarea>
+    <button class="btn primary" type="submit">הוספת הערה</button>
+  </form>
+  <ul class="timeline">{% for n in notes %}<li class="{{ n.kind }}">{% if n.channel %}<span class="badge">{{ n.get_channel_display }}</span> {% endif %}{{ n.text|linebreaksbr }}<br><small>{{ n.created_at|date:"d/m/Y H:i" }}{% if n.author %} · {{ n.author.username }}{% endif %}</small></li>
+  {% empty %}<li class="empty">עוד אין פעילות.</li>{% endfor %}</ul>
+</section>
+
+<section id="d-mail" class="dpane">
+  {% if emails %}<ul class="plain">{% for m in emails %}<li><a href="{% url 'mail_detail' m.pk %}">{{ m.subject|default:"(ללא נושא)"|truncatechars:50 }}</a><br><small class="meta">{{ m.sent_at|date:"d/m/Y H:i" }} · {{ m.get_category_display }}</small></li>{% endfor %}</ul>
+  {% else %}<p class="empty">אין מיילים מאיש הקשר הזה.</p>{% endif %}
+</section>

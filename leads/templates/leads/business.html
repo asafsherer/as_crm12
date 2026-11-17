@@ -1,0 +1,89 @@
+{% extends "leads/base.html" %}
+{% load static %}
+{% block title %}מנהל עסקי{% endblock %}
+{% block content %}
+<p><a href="{% url 'agents' %}">חזרה לעובדים</a></p>
+<h1>מנהל עסקי</h1>
+<p class="sub">כל המספרים מחושבים בקוד מנתוני המערכת. ה-AI רק מסביר ומציע, ומספר שאינו מופיע בנתונים מסומן באזהרה.</p>
+
+<section class="panel">
+  <form method="post" action="{% url 'business_run' %}" class="fin">{% csrf_token %}
+    <label>תקופת ניתוח<br><select name="days"><option value="30">30 יום</option><option value="90" selected>90 יום</option><option value="365">שנה</option></select></label>
+    <label>יעד הכנסה חודשי (₪), אופציונלי<br><input type="text" name="target" inputmode="numeric" placeholder="ברירת מחדל: היעד מהדוחות"></label>
+    <div><button class="btn primary" type="submit">הרצת ניתוח</button></div>
+  </form>
+</section>
+
+{% if not run %}
+  <p class="empty" style="margin-top:1rem">הניתוח עוד לא הורץ.</p>
+{% else %}
+  <p class="meta" style="margin-top:1rem">הורץ {{ run.created_at|date:"d/m/Y H:i" }} · {{ facts.window_days }} ימים</p>
+  {% for w in facts.warnings %}<div class="msg warning">{{ w }}</div>{% endfor %}
+  {% if run.output.unverified %}<div class="msg warning">הטקסט של ה-AI מזכיר מספרים שלא מופיעים בנתונים ({{ run.output.unverified|join:", " }}). התעלם מהם.</div>{% endif %}
+
+  <div class="grid kpis">
+    <div class="stat"><b>{{ facts.totals.leads }}</b><span>לידים</span></div>
+    <div class="stat"><b>{{ facts.totals.with_case }}</b><span>הפכו לתיק{% if facts.totals.lead_to_case_pct != None %} ({{ facts.totals.lead_to_case_pct }}%){% endif %}</span></div>
+    <div class="stat"><b>{{ facts.totals.closed }}</b><span>נסגרו{% if facts.totals.lead_to_closed_pct != None %} ({{ facts.totals.lead_to_closed_pct }}% מהלידים){% endif %}</span></div>
+    <div class="stat big"><b>{{ facts.totals.revenue|floatformat:"0g" }} ₪</b><span>הכנסות מתיקים שנסגרו</span></div>
+    <div class="stat"><b>{{ facts.totals.cost|floatformat:"0g" }} ₪</b><span>עלות שיווק</span></div>
+    <div class="stat"><b>{% if facts.totals.roi_pct != None %}{{ facts.totals.roi_pct }}%{% else %}—{% endif %}</b><span>תשואה על השיווק</span></div>
+  </div>
+
+  <h2>תוכנית ליעד החודשי</h2>
+  <section class="panel">
+    {% if facts.plan.needed_closed != None %}
+      <p>יעד: <b>{{ facts.plan.target|floatformat:"0g" }} ₪</b> · נצבר החודש: <b>{{ facts.plan.revenue_so_far|floatformat:"0g" }} ₪</b> · נשאר: <b>{{ facts.plan.remaining_revenue|floatformat:"0g" }} ₪</b> · ימים לסוף החודש: {{ facts.plan.days_left_in_month }}</p>
+      <div class="grid">
+        <div class="stat"><b>{{ facts.plan.needed_closed }}</b><span>תיקים לסגירה (לפי עלות תיק ממוצעת {{ facts.plan.avg_fee|floatformat:"0g" }} ₪)</span></div>
+        <div class="stat"><b>{{ facts.plan.needed_leads }}</b><span>לידים נדרשים (לפי המרה בפועל)</span></div>
+        <div class="stat"><b>{% if facts.plan.needed_calls != None %}{{ facts.plan.needed_calls }}{% else %}—{% endif %}</b><span>שיחות/ניסיונות חיוג</span></div>
+        <div class="stat"><b>{% if facts.plan.needed_budget != None %}{{ facts.plan.needed_budget|floatformat:"0g" }} ₪{% else %}—{% endif %}</b><span>תקציב שיווק משוער</span></div>
+      </div>
+    {% else %}<p class="empty">אין מספיק נתונים לתוכנית: נדרשים יעד חודשי, לפחות תיק אחד שנסגר עם עלות, ולידים בתקופה.</p>{% endif %}
+  </section>
+
+  <h2>לפי מקור ליד</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>מקור</th><th>לידים</th><th>קשר</th><th>מעוניינים</th><th>תיקים</th><th>נסגרו</th><th>הכנסות</th><th>עלות</th><th>עלות לליד</th><th>עלות לתיק שנסגר</th><th>תשואה</th></tr></thead>
+    <tbody>{% for s in facts.by_source %}
+      <tr><td><b>{{ s.source }}</b></td><td>{{ s.leads }}</td><td>{{ s.contacted }}</td><td>{{ s.interested }}</td><td>{{ s.with_case }}</td><td>{{ s.closed }}</td>
+          <td>{{ s.revenue|floatformat:"0g" }}</td><td>{{ s.cost|floatformat:"0g" }}</td>
+          <td>{% if s.cpl != None %}{{ s.cpl }}{% else %}—{% endif %}</td><td>{% if s.cost_per_closed != None %}{{ s.cost_per_closed|floatformat:"0g" }}{% else %}—{% endif %}</td>
+          <td>{% if s.roi_pct != None %}{{ s.roi_pct }}%{% else %}—{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="11" class="empty">אין לידים בתקופה.</td></tr>{% endfor %}</tbody>
+  </table></div>
+
+  <h2>הכנסות לפי חודש (תיקים שנסגרו)</h2>
+  <section class="panel">
+    <div class="cols">{% for m in trend %}
+      <div class="colw"><b>{{ m.revenue|floatformat:"0g" }}</b><div class="bar-area"><i style="height:{{ m.h }}%"></i></div><small>{{ m.month }}</small><small>{{ m.closed }} תיקים</small></div>
+    {% endfor %}</div>
+  </section>
+
+  {% if run.output.explanation or run.output.improvements %}
+  <h2>הסבר והמלצות <span class="badge">AI</span></h2>
+  <section class="panel">
+    {% if run.output.explanation %}<p>{{ run.output.explanation }}</p>{% endif %}
+    {% if run.output.improvements %}<h3>מה לשפר</h3><ul class="ai-lines">{% for x in run.output.improvements %}<li>• {{ x }}</li>{% endfor %}</ul>{% endif %}
+    {% if run.output.risks %}<h3>סיכונים</h3><ul class="ai-lines">{% for x in run.output.risks %}<li>• {{ x }}</li>{% endfor %}</ul>{% endif %}
+    <p class="meta">אלה הצעות לשיקול דעתך, לא החלטות.</p>
+  </section>
+  {% elif not ai_enabled %}<p class="meta">ללא מפתח AI מוצגים החישובים בלבד.</p>{% endif %}
+{% endif %}
+
+<h2>עלויות שיווק</h2>
+<section class="panel">
+  <form method="post" action="{% url 'cost_save' %}" class="fin">{% csrf_token %}
+    <label>חודש<br><input type="month" name="month" value="{{ this_month }}" required></label>
+    <label>מקור (כמו בשדה "מקור הליד")<br><input type="text" name="source" maxlength="60" placeholder="למשל: פייסבוק" required></label>
+    <label>סכום (₪)<br><input type="text" name="amount" inputmode="numeric" required></label>
+    <div><button class="btn primary" type="submit">שמירה</button></div>
+  </form>
+  {% if costs %}<div class="scroll" style="margin-top:1rem"><table>
+    <thead><tr><th>חודש</th><th>מקור</th><th>סכום</th><th></th></tr></thead>
+    <tbody>{% for c in costs %}<tr><td>{{ c.month|date:"m/Y" }}</td><td>{{ c.source }}</td><td>{{ c.amount|floatformat:"0g" }} ₪</td>
+      <td><form method="post" action="{% url 'cost_delete' c.pk %}" data-confirm="למחוק את העלות?">{% csrf_token %}<button class="btn sm danger" type="submit">מחיקה</button></form></td></tr>{% endfor %}</tbody>
+  </table></div>{% endif %}
+</section>
+{% endblock %}

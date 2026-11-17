@@ -1,0 +1,55 @@
+{% extends "leads/base.html" %}
+{% load crm_tags %}
+{% block title %}מיילים{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>מיילים</h1><p class="sub">כל המיילים של הלקוחות במקום אחד, מסודרים לפי איש קשר, קבלות ומסמכים.</p></div>
+  <div class="actions">
+    <form method="post" action="{% url 'mail_clerk_run' %}">{% csrf_token %}<button class="btn primary" type="submit">שיהיה סדר: הרצת מתפעל המיילים</button></form>
+    {% if is_manager %}<form method="post" action="{% url 'mail_fetch' %}">{% csrf_token %}<button class="btn" type="submit" {% if not configured %}disabled title="תיבת המייל עוד לא הוגדרה"{% endif %}>משיכת מיילים מהתיבה</button></form>{% endif %}
+  </div>
+</div>
+
+{% if run %}
+<section class="panel clerk">
+  <b>מתפעל המיילים</b> <span class="meta">· {{ run.created_at|date:"d/m/Y H:i" }}{% if run.used_ai %} · נוסח ע״י AI מתוך ספירות בלבד{% endif %}</span>
+  <p style="margin:.4rem 0 0">{{ run.summary }}</p>
+  <p class="meta" style="margin:.4rem 0 0">המתפעל רק מציע. שום דבר לא נשמר בתיק, לא נשלח ולא נמחק בלי אישור שלך.</p>
+</section>
+{% endif %}
+
+<div class="chips">
+  {% for key, label in tabs %}<a class="fchip {% if tab == key %}on{% endif %}" style="--c:#2563EB" href="?tab={{ key }}"><i></i>{{ label }} <b>{{ counts|get_item:key }}</b></a>{% endfor %}
+  <form method="get" class="inline-search"><input type="hidden" name="tab" value="{{ tab }}"><input type="search" name="q" value="{{ q }}" placeholder="חיפוש לפי כתובת מייל" aria-label="חיפוש"></form>
+</div>
+
+<div class="scroll"><table class="ltable">
+  <thead><tr><th>מאת</th><th>נושא</th><th>איש קשר</th><th>סוג</th><th>קבצים</th><th>תאריך</th><th>הצעת המתפעל</th></tr></thead>
+  <tbody>
+  {% for m in page %}
+  <tr>
+    <td><span class="ltr">{{ m.from_addr|default:"—" }}</span></td>
+    <td class="nm"><a href="{% url 'mail_detail' m.pk %}">{{ m.subject|default:"(ללא נושא)"|truncatechars:48 }}</a></td>
+    <td>{% if m.lead %}<a href="{% url 'lead_detail' m.lead.pk %}">{{ m.lead.full_name }}</a>{% else %}<span class="tag">לא משויך</span>{% endif %}</td>
+    <td><span class="chip" style="--c:{% if m.category == 'receipt' %}#16A34A{% elif m.category == 'documents' %}#2563EB{% elif m.category == 'client' %}#8B5CF6{% else %}#64748B{% endif %}">{{ m.get_category_display }}</span></td>
+    <td>{{ m.attachments.all|length|default:"" }}</td>
+    <td class="meta">{{ m.sent_at|date:"d/m/Y H:i" }}</td>
+    <td class="note">{% if m.clerk %}{{ m.clerk.text }}{% if m.clerk.fills %}<br><b class="ok-t">משלים: {{ m.clerk.fills|join:", " }}</b>{% endif %}{% endif %}</td>
+  </tr>
+  {% empty %}<tr><td colspan="7" class="empty">אין מיילים להצגה. אפשר להעלות קבצי eml מהטופס למטה.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% if page.paginator.num_pages > 1 %}<div class="pager">
+  {% if page.has_previous %}<a class="btn sm" href="?tab={{ tab }}&q={{ q|urlencode }}&page={{ page.previous_page_number }}">הקודם</a>{% endif %}
+  <span class="meta">עמוד {{ page.number }} מתוך {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn sm" href="?tab={{ tab }}&q={{ q|urlencode }}&page={{ page.next_page_number }}">הבא</a>{% endif %}
+</div>{% endif %}
+
+<details class="panel" style="margin-top:1.4rem"><summary><b>הוספת מיילים ידנית</b> <span class="meta">(גרור הודעה משירות המייל כקובץ eml)</span></summary>
+  <form method="post" action="{% url 'mail_upload' %}" enctype="multipart/form-data" class="actions" style="margin-top:.7rem">{% csrf_token %}
+    <input type="file" name="eml" accept=".eml" multiple required aria-label="קבצי eml">
+    <button class="btn primary" type="submit">העלאה</button>
+  </form>
+  <p class="meta" style="margin:.6rem 0 0">{% if configured %}תיבת המייל מחוברת: המשיכה האוטומטית שולפת את ההודעות האחרונות.{% else %}כדי למשוך מיילים אוטומטית מהתיבה העסקית יש להגדיר MAIL_IMAP_USER ו-MAIL_IMAP_PASSWORD (ראה README).{% endif %}</p>
+</details>
+{% endblock %}

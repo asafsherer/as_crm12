@@ -1,0 +1,105 @@
+{% extends "leads/base.html" %}
+{% block title %}{{ lead.full_name }}{% endblock %}
+{% block content %}
+<p><a href="#" data-back>חזרה</a></p>
+<h1>{{ lead.full_name }} <span class="badge s-{{ lead.status }}">{{ lead.get_status_display }}</span></h1>
+<div class="actions" style="margin-bottom:1rem">
+  {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone }}">חיוג {{ lead.phone }}</a>{% endif %}
+  {% if lead.phone2 %}<a class="btn" href="tel:{{ lead.phone2 }}">חיוג {{ lead.phone2 }}</a>{% endif %}
+  {% if lead.whatsapp_url %}<a class="btn" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">וואטסאפ</a>{% endif %}
+  {% if lead.shared_phone %}<span class="tag">הטלפון משותף עם ליד אחר, לא לחייג פעמיים</span>{% endif %}
+</div>
+<div class="two">
+  <section class="panel">
+    <h2 style="margin-top:0">פרטים</h2>
+    <dl>
+      {% if pii_ok %}
+      <dt>ת״ז</dt><dd><span class="ltr">{{ lead.national_id }}</span>{% if not lead.id_valid %} <span class="tag">ספרת ביקורת לא תקינה</span>{% endif %}</dd>
+      <dt>תאריך לידה</dt><dd>{{ lead.birth_date|date:"d/m/Y"|default:"—" }}{% if lead.age %} (גיל {{ lead.age }}){% endif %}</dd>
+      <dt>מין</dt><dd>{{ lead.gender|default:"—" }}</dd>
+      <dt>כתובת</dt><dd>{{ lead.address|default:"—" }}{% if lead.zip_code %}, מיקוד {{ lead.zip_code }}{% endif %}</dd>
+      <dt>אימייל</dt><dd>{% if lead.email %}<span class="ltr">{{ lead.email }}</span>{% else %}—{% endif %}</dd>
+      {% else %}
+      <dt>גיל</dt><dd>{{ lead.age|default:"—" }}</dd>
+      <dt>עיר</dt><dd>{{ lead.city|default:"—" }}</dd>
+      <dt>פרטים אישיים</dt><dd class="meta">מוסתרים לפי תפקיד</dd>
+      {% endif %}
+      <dt>מטפל</dt><dd>{{ lead.assigned_to.username|default:"לא משויך" }}</dd>
+      <dt>ניסיונות חיוג</dt><dd>{{ lead.call_attempts }}</dd>
+      <dt>קשר אחרון</dt><dd>{{ lead.last_contact|date:"d/m/Y H:i"|default:"—" }}</dd>
+      <dt>לחזור בתאריך</dt><dd>{{ lead.callback_on|date:"d/m/Y"|default:"—" }}</dd>
+    </dl>
+    {% if pii_ok %}<div class="actions" style="margin:.8rem 0 0"><a class="btn sm" href="{% url 'lead_edit' lead.pk %}">עריכת פרטים</a></div>{% endif %}
+    {% if is_manager %}
+    <form method="post" class="actions" style="margin-top:.6rem">{% csrf_token %}<input type="hidden" name="action" value="assign">
+      <select name="assignee" aria-label="מטפל"><option value="">ללא שיוך</option>{% for u in team %}<option value="{{ u.pk }}" {% if lead.assigned_to_id == u.pk %}selected{% endif %}>{{ u.username }}</option>{% endfor %}</select>
+      <button class="btn sm" type="submit">שיוך</button>
+    </form>
+    {% endif %}
+    {% if me.role != 'sales' %}<h2>תיקים</h2>
+    {% for c in cases %}
+    <p style="margin:.3rem 0"><a href="{% url 'case_detail' c.pk %}">{{ c.get_case_type_display }}</a> <span class="badge">{{ c.get_stage_display }}</span>{% if c.fee %} <span class="meta">עלות {{ c.fee|floatformat:0 }} ₪</span>{% endif %}</p>
+    {% empty %}<p class="empty" style="padding:.2rem 0">עוד לא נפתח תיק ללקוח הזה.</p>{% endfor %}
+    <form method="post" class="actions" style="margin-top:.5rem">{% csrf_token %}
+      <input type="hidden" name="action" value="open_case">
+      <select name="case_type" aria-label="סוג תיק">{% for v, l in case_types %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+      <input type="text" name="amount" placeholder="סכום (אופציונלי)" size="14" inputmode="numeric" aria-label="סכום">
+      <button class="btn primary" type="submit">פתיחת תיק</button>
+    </form>{% endif %}
+    <h2>עדכון סטטוס</h2>
+    <form method="post" class="actions">{% csrf_token %}
+      <input type="hidden" name="action" value="status">
+      <select name="status" aria-label="סטטוס">
+        {% for value, label in statuses %}<option value="{{ value }}" {% if lead.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <input type="date" name="callback_on" value="{{ lead.callback_on|date:'Y-m-d' }}" aria-label="לחזור בתאריך">
+      <button class="btn primary" type="submit">שמירת סטטוס</button>
+    </form>
+    <p class="sub">התאריך משמש לסטטוסים ״חזרה בעוד זמן״ ו״מעוניין״.</p>
+    {% if is_manager %}
+    <form method="post" action="{% url 'lead_delete' lead.pk %}" data-confirm="למחוק את הליד, כולל כל התיקים, המסמכים וההערות שלו? אי אפשר לשחזר." style="margin-top:1.2rem">{% csrf_token %}
+      <button class="btn sm danger" type="submit">מחיקת הליד</button>
+    </form>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <h2 style="margin-top:0">שיתוף הליד</h2>
+    {% for sh in lead_shares %}
+    <div class="doc"><span>משותף עם <b>{{ sh.shared_with.username }}</b></span><span class="meta">מאז {{ sh.created_at|date:"d/m/Y" }}</span>
+      {% if can_share %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="lead_unshare"><input type="hidden" name="share" value="{{ sh.pk }}"><button class="btn sm danger" type="submit">ביטול שיתוף</button></form>{% endif %}</div>
+    {% empty %}<p class="sub">הליד לא משותף. השותף רואה את הליד וההערות, ויכול לעדכן סטטוס ולהוסיף הערות.</p>{% endfor %}
+    {% if can_share %}
+    <form method="post" class="actions" style="margin-top:.6rem">{% csrf_token %}<input type="hidden" name="action" value="lead_share">
+      <select name="partner" aria-label="שתף עם">{% for u in partners %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.profile.get_workspace_display }})</option>{% endfor %}</select>
+      <input type="text" name="msg" placeholder="הודעה (אופציונלי)" size="22" aria-label="הודעה">
+      <button class="btn primary" type="submit">שיתוף</button>
+    </form>{% endif %}
+  </section>
+  <section class="panel">
+    <h2 style="margin-top:0">הערות והיסטוריה</h2>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="note">
+      <select name="channel" aria-label="אמצעי קשר" style="margin-bottom:.5rem">
+        <option value="">הערה כללית</option>
+        {% for v, l in channels %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+      </select>
+      <textarea name="text" placeholder="מה נאמר בשיחה?" aria-label="הערה"></textarea>
+      <button class="btn primary" type="submit" style="margin-top:.5rem">הוספת הערה</button>
+    </form>
+    {% if ai_enabled %}
+    <details style="margin-top:1rem"><summary class="meta">סיכום שיחה עם AI</summary>
+      <form method="post" style="margin-top:.5rem">{% csrf_token %}<input type="hidden" name="action" value="call_summary">
+        <textarea name="transcript" placeholder="הדבק תמלול או הערות מהשיחה" aria-label="תמלול"></textarea>
+        <label class="check" style="margin:.4rem 0"><input type="checkbox" name="client_ok"> הלקוח אישר שימוש בכלי AI</label>
+        <label class="check" style="margin:.4rem 0"><input type="checkbox" name="make_tasks" checked> צור משימות המשך אוטומטית</label>
+        <button class="btn primary" type="submit">סיכום</button>
+      </form></details>
+    {% endif %}
+    <ul class="timeline" style="margin-top:1rem">
+      {% for n in notes %}
+      <li class="{{ n.kind }}">{% if n.channel %}<span class="badge">{{ n.get_channel_display }}</span> {% endif %}{% if n.case %}<a class="meta" href="{% url 'case_detail' n.case.pk %}">{{ n.case.get_case_type_display }}</a> {% endif %}{{ n.text|linebreaksbr }}<br><small>{{ n.created_at|date:"d/m/Y H:i" }}{% if n.author %} · {{ n.author.username }}{% endif %}</small></li>
+      {% empty %}<li class="empty">עוד אין הערות.</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

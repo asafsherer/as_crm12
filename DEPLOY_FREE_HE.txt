@@ -1,0 +1,36 @@
+העלאה חינמית לענן: Render (האתר) + Neon (מסד נתונים) + Cloudflare R2 (קבצים) + cron-job.org (משימות)
+=====================================================================================
+חשוב: בהתחלה האתר "נרדם" אחרי 15 דקות בלי כניסות. ה-ping כל 10 דקות (שלב 7) שומר אותו ער.
+אל תכניס לידים אמיתיים לפני שהתחברות דו-שלבית (2FA) עובדת (שלב 9).
+
+1. מפתחות (פעם אחת, שמור עותק במקום בטוח, אובדן המפתחות = אובדן המידע):
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   להריץ פעמיים: אחד ל-FIELD_ENCRYPTION_KEY ואחד (שונה) ל-ID_HASH_KEY.
+   (אין Python במחשב? אפשר להריץ באתר replit.com או לבקש ממני לייצר.)
+
+2. GitHub: מאגר פרטי חדש, העלאת תוכן התיקייה as_crm (Add file > Upload files).
+
+3. Neon (neon.com): הרשמה בחינם > Create project, אזור Frankfurt. העתק את Connection string (מתחיל ב-postgresql://...?sslmode=require). זה ה-DATABASE_URL.
+
+4. Cloudflare R2: R2 > Create bucket (פרטי, למשל as-crm-files) > Manage API Tokens > Object Read & Write.
+   שמור: Endpoint (https://<account-id>.r2.cloudflarestorage.com), Access Key ID, Secret. ייתכן ש-Cloudflare יבקש כרטיס אשראי לצורך הפעלה, אין חיוב במסגרת החינם (10GB).
+
+5. Render (render.com): New > Blueprint > בחר את המאגר. render.yaml מגדיר הכול.
+   Render ישאל את הערכים שסימנו sync:false: DATABASE_URL, FIELD_ENCRYPTION_KEY, ID_HASH_KEY, ADMIN_URL (מחרוזת סודית כמו panel-8f3k2x9/),
+   CSRF_TRUSTED_ORIGINS (https://<שם-האפליקציה>.onrender.com), R2_* , ANTHROPIC_API_KEY (אופציונלי).
+   ALLOWED_HOSTS כבר מכסה onrender.com. כשתחבר דומיין משלך הוסף אותו ל-ALLOWED_HOSTS ול-CSRF_TRUSTED_ORIGINS.
+
+6. משתמש ראשון: ב-Render > האפליקציה > Shell (ייתכן שדורש תוכנית בתשלום. אם אין Shell: הרץ מקומית עם אותו DATABASE_URL:
+   python manage.py createsuperuser ) .
+
+7. משימות מתוזמנות: cron-job.org (חינם) > Create cronjob:
+   א. כל 10 דקות: https://<האפליקציה>.onrender.com/cron/tick/?token=<CRON_TOKEN>   (שומר ער + מושך מיילים)
+   ב. פעם ביום: https://<האפליקציה>.onrender.com/cron/daily/?token=<CRON_TOKEN>   (סוכני AI + גיבוי מוצפן ל-R2)
+   ה-CRON_TOKEN מופיע ב-Render > Environment.
+
+8. אתר: ב-Cloudflare Pages הוסף CRM_URL ו-INTAKE_TOKEN (= LEAD_INTAKE_TOKEN מ-Render), ראה website_connect/README_HE.txt.
+
+9. כניסה ראשונה: סרוק QR באפליקציית Authenticator (2FA חובה).
+
+עלות AI: ANTHROPIC_API_KEY הוא תשלום לפי שימוש (console.anthropic.com), לא כלול בחינם ולא במנוי Claude. הגדר שם Spend limit חודשי.
+ב-render.yaml מוגדר CLAUDE_MODEL=claude-haiku-5-5 (זול יותר). בלי מפתח, כפתורי ה-AI פשוט מוסתרים והשאר עובד.

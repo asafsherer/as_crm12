@@ -1,0 +1,22 @@
+{% extends "leads/base.html" %}
+{% block title %}הפעלת התחברות דו-שלבית{% endblock %}
+{% block content %}
+<div class="login" style="max-width:460px;margin-top:4vh">
+  <h1>הפעלת התחברות דו-שלבית</h1>
+  <div class="panel" style="display:grid;gap:.9rem">
+    <p style="margin:0">כדי לאבטח את המידע על הלקוחות, כל כניסה תדרוש גם קוד מהטלפון.</p>
+    <ol style="margin:0;padding-inline-start:1.2rem;display:grid;gap:.4rem">
+      <li>התקן בטלפון את האפליקציה <b>Google Authenticator</b> (או Microsoft Authenticator).</li>
+      <li>באפליקציה בחר <b>סריקת קוד QR</b> וסרוק את הקוד למטה.</li>
+      <li>הקלד כאן את הקוד בן 6 הספרות שמופיע באפליקציה.</li>
+    </ol>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:.5rem;justify-self:center;line-height:0">{{ qr|safe }}</div>
+    <details><summary class="meta">לא מצליח לסרוק? הקלדה ידנית</summary>
+      <p class="meta">הוסף חשבון באפליקציה עם המפתח:<br><b class="ltr" style="letter-spacing:.08em">{{ secret }}</b></p></details>
+    <form method="post" class="actions">{% csrf_token %}
+      <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="קוד 6 ספרות" required aria-label="קוד" style="width:11rem">
+      <button class="btn primary" type="submit">אימות והפעלה</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

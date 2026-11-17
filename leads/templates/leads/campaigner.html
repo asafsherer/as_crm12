@@ -1,0 +1,62 @@
+{% extends "leads/base.html" %}
+{% block title %}קמפיינר{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>קמפיינר</h1><p class="sub">עובר על הלידים שנכנסים מהאתר ומהקמפיינים, מנקד אותם ומציע מה לעשות. הוא מציע בלבד.</p></div>
+  <form method="post" action="{% url 'campaigner_run' %}" class="actions">{% csrf_token %}
+    <select name="days" aria-label="תקופה"><option value="7">7 ימים</option><option value="30" selected>30 ימים</option><option value="90">90 ימים</option></select>
+    <button class="btn primary" type="submit">הרצת הקמפיינר</button>
+    <a class="btn" href="{% url 'ads_home' %}">דוחות גוגל אדס</a>
+  </form>
+</div>
+{% if not intake_on %}<div class="msg warning">קליטת לידים מהאתר עדיין כבויה. להפעלה: להגדיר LEAD_INTAKE_TOKEN בשרת ולחבר את האתר (ראה README, תיקיית website_connect).</div>{% endif %}
+{% if not ai_enabled %}<div class="msg">מפתח AI לא מוגדר. הניקוד והמלצות הפעולה מחושבים בקוד, ועובדים גם בלעדיו.</div>{% endif %}
+
+<div class="grid">
+  <a class="stat big" href="{% url 'lead_list' %}?web=1&status=new"><b>{{ new_leads }}</b><span>לידים חדשים מהאתר</span></a>
+  {% if run %}
+  <div class="stat"><b>{{ run.facts.total }}</b><span>נבדקו ב-{{ run.facts.days }} ימים</span></div>
+  <div class="stat"><b>{{ run.facts.tiers.hot|default:0 }}</b><span>חמים</span></div>
+  <div class="stat"><b>{{ run.facts.tiers.warm|default:0 }}</b><span>פושרים</span></div>
+  <div class="stat"><b>{{ run.facts.tiers.cold|default:0 }}</b><span>קרים</span></div>
+  {% endif %}
+</div>
+
+{% if run %}
+<section class="panel" style="margin-top:1.1rem">
+  <p class="meta" style="margin:0">הורץ {{ run.created_at|date:"d/m/Y H:i" }}{% if run.used_ai %} · נוסח ע״י AI מתוך סיכומים בלבד, בלי פרטים אישיים{% endif %}</p>
+  <p style="font-size:1.05rem;margin:.4rem 0">{{ run.summary }}</p>
+  {% for t in run.output.tips %}<p class="meta" style="margin:.2rem 0">• {{ t }}</p>{% endfor %}
+  {% if run.output.unverified %}<div class="msg warning">הסיכום מזכיר מספרים שלא מופיעים בנתונים ({{ run.output.unverified|join:", " }}). בדוק בטבלה.</div>{% endif %}
+  {% for w in run.facts.warnings %}<div class="msg warning">{{ w }}</div>{% endfor %}
+  <form method="post" action="{% url 'campaigner_apply' %}" class="actions" style="margin-top:.8rem">{% csrf_token %}
+    <label class="check"><input type="checkbox" name="tasks" checked> לפתוח משימת חזרה לכל ליד חם שעוד לא טופל</label>
+    <button class="btn primary" type="submit">אישור: שמירת הניקוד בלידים{% if run.facts.unscored %} ({{ run.facts.unscored }} לעדכון){% endif %}</button>
+  </form>
+</section>
+
+<h2>לפי קמפיין</h2>
+<div class="scroll"><table class="ltable">
+  <thead><tr><th>קמפיין / מקור</th><th>לידים</th><th>חמים</th><th>ניקוד ממוצע</th><th>הפכו לתיק</th></tr></thead>
+  <tbody>{% for c in run.facts.campaigns %}
+    <tr><td class="nm">{{ c.campaign }}</td><td>{{ c.leads }}</td><td>{{ c.hot }}{% if c.enough_data and c.hot_pct is not None %} <span class="meta">({{ c.hot_pct }}%)</span>{% endif %}</td><td>{{ c.avg_score }}</td><td>{{ c.with_case }}</td></tr>
+  {% empty %}<tr><td colspan="5" class="empty">אין נתונים.</td></tr>{% endfor %}</tbody>
+</table></div>
+
+<h2>הלידים, מהחם לקר</h2>
+<div class="scroll"><table class="ltable">
+  <thead><tr><th>ליד</th><th>ניקוד</th><th>תחום</th><th>מקור</th><th>למה</th><th>מה לעשות</th><th></th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr>
+      <td class="nm"><a href="{% url 'lead_detail' r.lead.pk %}" data-drawer="{% url 'lead_drawer' r.lead.pk %}">{{ r.lead.full_name }}</a></td>
+      <td><span class="score {{ r.tier }}">{{ r.score }}</span> <span class="meta">{{ r.tier_label }}</span></td>
+      <td>{{ r.interest_label }}</td>
+      <td class="meta">{{ r.campaign }}</td>
+      <td class="note">{{ r.why|join:" · " }}</td>
+      <td>{{ r.action }}</td>
+      <td>{% if r.lead.whatsapp_url %}<a class="btn sm" href="{% url 'campaigner_message' r.lead.pk %}" target="_blank" rel="noopener">הודעה ראשונה בוואטסאפ</a>{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="7" class="empty">אין לידים מהאתר בתקופה הזאת.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<p class="empty" style="margin-top:1.2rem">הקמפיינר עוד לא הורץ. לחץ על ״הרצת הקמפיינר״.</p>{% endif %}
+{% endblock %}

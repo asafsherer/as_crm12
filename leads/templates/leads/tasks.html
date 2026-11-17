@@ -1,0 +1,13 @@
+{% extends "leads/base.html" %}
+{% block title %}משימות{% endblock %}
+{% block content %}
+<h1>המשימות שלי</h1>
+<form method="post" class="actions panel" style="margin-bottom:1rem">{% csrf_token %}
+  <input type="text" name="title" placeholder="משימה חדשה" required aria-label="משימה" size="30">
+  <input type="date" name="due_on" aria-label="תאריך יעד">
+  <select name="priority" aria-label="עדיפות"><option value="normal">רגיל</option><option value="urgent">דחוף</option></select>
+  <button class="btn primary" type="submit">הוספה</button>
+</form>
+{% include "leads/_task_list.html" with items=open empty_text="אין משימות פתוחות. כל הכבוד." %}
+{% if done %}<h2>הושלמו לאחרונה</h2>{% include "leads/_task_list.html" with items=done %}{% endif %}
+{% endblock %}

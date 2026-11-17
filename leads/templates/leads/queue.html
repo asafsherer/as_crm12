@@ -1,0 +1,12 @@
+{% extends "leads/base.html" %}
+{% block title %}למי לחייג{% endblock %}
+{% block content %}
+<h1>למי לחייג היום</h1>
+{% for title, hint, leads in sections %}
+<h2>{{ title }} <span class="meta">({{ leads|length }})</span></h2>
+<p class="sub">{{ hint }}</p>
+<div class="cards">
+  {% for l in leads %}{% include "leads/_card.html" with quick=quick_buttons %}{% empty %}<p class="empty">אין כאן לידים כרגע.</p>{% endfor %}
+</div>
+{% endfor %}
+{% endblock %}

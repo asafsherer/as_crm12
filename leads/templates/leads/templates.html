@@ -1,0 +1,24 @@
+{% extends "leads/base.html" %}
+{% block title %}תבניות מסמכים{% endblock %}
+{% block content %}
+<h1>תבניות חוזים ומסמכים</h1>
+<div class="panel">
+  <p style="margin-top:0">מעלים קובץ Word (docx) עם שדות בתוך סוגריים מסולסלים, למשל <b class="ltr">{% templatetag openvariable %}שם_לקוח{% templatetag closevariable %}</b>. בתיק לוחצים על התבנית, והמערכת ממלאת את הפרטים ושומרת את החוזה בתיק.</p>
+  <p><a class="btn sm" href="{% url 'template_sample' %}">הורדת תבנית לדוגמה</a></p>
+  <form method="post" enctype="multipart/form-data" class="actions">{% csrf_token %}<input type="hidden" name="action" value="upload">
+    <input type="text" name="name" placeholder="שם התבנית (למשל: הסכם משיכת פנסיה)" required size="30" aria-label="שם">
+    <select name="case_type" aria-label="סוג תיק"><option value="">מתאימה לכל סוג תיק</option>{% for v, l in case_types %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+    <input type="file" name="file" accept=".docx" required aria-label="קובץ">
+    <button class="btn primary" type="submit">העלאה</button>
+  </form>
+</div>
+<h2>התבניות שלי</h2>
+{% for t in templates %}
+<div class="doc"><b>{{ t.name }}</b><span class="meta">{% if t.case_type %}{{ t.case_type }}{% else %}כל סוג תיק{% endif %} · {{ t.created_at|date:"d/m/Y" }}</span>
+  <form method="post" data-confirm="למחוק את התבנית?">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="template" value="{{ t.pk }}"><button class="btn sm danger" type="submit">מחיקה</button></form></div>
+{% empty %}<p class="empty">עוד לא הועלו תבניות.</p>{% endfor %}
+<h2>שדות שהמערכת ממלאת</h2>
+<div class="scroll"><table><thead><tr><th>כך כותבים בתבנית</th><th>מה יופיע</th></tr></thead><tbody>
+{% for key, label in fields %}<tr><td><span class="ltr">{% templatetag openvariable %}{{ key }}{% templatetag closevariable %}</span></td><td>{{ label }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

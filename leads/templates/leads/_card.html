@@ -1,0 +1,27 @@
+<article class="card">
+  <div class="card-head">
+    <a class="name" href="{% url 'lead_detail' l.pk %}">{{ l.full_name }}</a>
+    <span class="badge s-{{ l.status }}">{{ l.get_status_display }}</span>
+    {% if l.shared_phone %}<span class="tag">טלפון משותף</span>{% endif %}
+    <span class="meta">{% if l.age %}גיל {{ l.age }}{% endif %}{% if l.city %}{% if l.age %} · {% endif %}{{ l.city }}{% endif %}</span>
+  </div>
+  <div class="actions">
+    <a class="call" href="tel:{{ l.best_phone }}">{{ l.best_phone }}</a>
+    {% if l.whatsapp_url %}<a class="btn sm" href="{{ l.whatsapp_url }}" target="_blank" rel="noopener">וואטסאפ</a>{% endif %}
+    {% if l.callback_on %}<span class="meta">לחזור ב-{{ l.callback_on|date:"d/m" }}</span>{% endif %}
+    {% if l.call_attempts %}<span class="meta">{{ l.call_attempts }} ניסיונות</span>{% endif %}
+  </div>
+  <div class="actions">
+    {% for value, label in quick %}
+    <form method="post" action="{% url 'quick_status' l.pk %}">{% csrf_token %}
+      <input type="hidden" name="status" value="{{ value }}"><input type="hidden" name="next" value="{{ next }}">
+      <button class="btn sm {% if value == 'do_not_call' or value == 'not_relevant' %}danger{% endif %}" type="submit">{{ label }}</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="{% url 'quick_status' l.pk %}">{% csrf_token %}
+      <input type="hidden" name="status" value="callback"><input type="hidden" name="next" value="{{ next }}">
+      <input type="date" name="callback_on" aria-label="תאריך חזרה" required>
+      <button class="btn sm" type="submit">חזרה בתאריך</button>
+    </form>
+  </div>
+</article>

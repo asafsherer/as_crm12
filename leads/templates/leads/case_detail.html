@@ -1,0 +1,248 @@
+{% extends "leads/base.html" %}
+{% block title %}{{ case.get_case_type_display }} - {{ lead.full_name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'case_board' %}">כל התיקים</a> · <a href="{% url 'lead_detail' lead.pk %}">כרטיס הלקוח</a></p>
+<h1>{{ case.get_case_type_display }}: {{ lead.full_name }} <span class="badge">{{ case.get_stage_display }}</span>{% if not is_own %} <span class="tag">משותף איתי</span>{% endif %}</h1>
+<div class="actions" style="margin-bottom:1rem">
+  {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone }}">חיוג {{ lead.phone }}</a>{% endif %}
+  {% if lead.whatsapp_url %}<a class="btn" href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener">וואטסאפ</a>{% endif %}
+  <span class="meta">נפתח {{ case.opened_at|date:"d/m/Y" }}{% if case.owner %} · אחראי: {{ case.owner.username }}{% endif %}{% if case.closed_at %} · נסגר {{ case.closed_at|date:"d/m/Y" }}{% endif %}</span>
+</div>
+
+<div class="two">
+<div style="display:grid;gap:1rem;align-content:start">
+  <section class="panel">
+    <h2 style="margin-top:0">שלב בתיק</h2>
+    <form method="post" class="actions">{% csrf_token %}
+      <input type="hidden" name="action" value="stage">
+      <select name="stage" aria-label="שלב">{% for v, l in stages %}<option value="{{ v }}" {% if case.stage == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <button class="btn primary" type="submit">עדכון שלב</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0">פרטי התיק וכספים</h2>
+    <form method="post" class="fin">{% csrf_token %}
+      <input type="hidden" name="action" value="finance">
+      <label>סוג תיק<br><select name="case_type">{% for v, l in case_types %}<option value="{{ v }}" {% if case.case_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <label>סכום העסקה (₪)<br><input type="text" name="amount" value="{{ case.amount|default_if_none:''|floatformat:0 }}" inputmode="numeric"></label>
+      <label>הכנסה חודשית (₪)<br><input type="text" name="monthly_income" value="{{ case.monthly_income|default_if_none:''|floatformat:0 }}" inputmode="numeric"></label>
+      <label>מספר תיק הוצל״פ / אסמכתא<br><input type="text" name="file_number" value="{{ case.file_number }}"></label>
+      {% if case.workspace == 'legal' %}
+      <label>שם החייב<br><input type="text" name="debtor_name" value="{{ case.debtor_name }}"></label>
+      <label>שם הזוכה<br><input type="text" name="creditor_name" value="{{ case.creditor_name }}"></label>
+      <label>סוג ההליך<br><select name="procedure_type"><option value="">בחר</option>{% for val, l in procedures %}<option value="{{ val }}" {% if case.procedure_type == val %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <label>סכום הקרן (₪)<br><input type="text" name="principal_amount" value="{{ case.principal_amount|default_if_none:''|floatformat:0 }}" inputmode="numeric"></label>
+      <label>רשם / שופט<br><input type="text" name="registrar_judge" value="{{ case.registrar_judge }}"></label>
+      {% endif %}
+      <label>עלות תיק / עמלה (₪)<br><input type="text" name="fee" value="{{ case.fee|default_if_none:''|floatformat:0 }}" inputmode="numeric"></label>
+      <label class="check"><input type="checkbox" name="fee_paid" {% if case.fee_paid %}checked{% endif %}> העמלה שולמה</label>
+      <button class="btn primary" type="submit">שמירה</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0">מסמכים {% if missing %}<span class="tag">{% if awaiting %}מוצעים כחסרים{% else %}חסרים{% endif %} {{ missing }}</span>{% else %}<span class="badge s-interested">הכול התקבל</span>{% endif %}</h2>
+    {% if awaiting and is_own %}<div class="msg warning">המתפעלת מציעה את הרשימה הזאת כחסרה, אבל לא ביקשה כלום מהלקוח. עבור עליה: מה שלא נדרש סמן &quot;לא נדרש&quot;, ואז אשר.</div>{% endif %}
+    <ul class="req-list">
+      {% for r in checklist %}<li class="{% if r.ok %}ok{% elif r.state == 'required' %}miss{% else %}opt{% endif %}">
+        <span class="req-mark" aria-hidden="true">{% if r.ok %}✓{% elif r.state == 'required' %}!{% else %}–{% endif %}</span>
+        <span class="req-label">{{ r.label }}</span>
+        {% if r.state == 'optional' %}<span class="pill">אם יש</span>{% endif %}
+        {% if r.ok %}<span class="meta">התקבל</span>{% elif r.state == 'required' %}<span class="meta late">חסר</span>{% else %}<span class="meta">לא התקבל</span>{% endif %}
+        {% if is_own and not r.ok %}<form method="post" class="req-act">{% csrf_token %}<input type="hidden" name="action" value="doc_state"><input type="hidden" name="key" value="{{ r.key }}"><input type="hidden" name="state" value="off"><button class="btn sm" type="submit" title="להסיר מהחוסרים בתיק הזה">לא נדרש</button></form>{% endif %}
+      </li>{% endfor %}
+    </ul>
+    {% if is_own and missing %}
+    <form method="post" class="actions" style="margin:.6rem 0">{% csrf_token %}<input type="hidden" name="action" value="confirm_missing">
+      {% if confirmed %}<span class="badge s-interested">רשימת החוסרים אושרה</span>{% else %}<button class="btn primary" type="submit">אישור רשימת החוסרים</button>{% endif %}
+    </form>
+    {% endif %}
+    {% if is_own %}
+    <details class="req-edit"><summary>הגדרת המסמכים הנדרשים בתיק הזה</summary>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="doc_settings">
+        <div class="req-grid">
+          {% for r in req_rows %}<label class="req-row"><span>{{ r.label }}</span>
+            <select name="req_{{ r.key }}" aria-label="{{ r.label }}">{% for v, l in state_labels %}<option value="{{ v }}" {% if r.state == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>{% endfor %}
+        </div>
+        <button class="btn primary" type="submit" style="margin-top:.6rem">שמירת הרשימה</button>
+      </form>
+    </details>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data" class="actions" style="margin:.8rem 0">{% csrf_token %}
+      <input type="hidden" name="action" value="upload">
+      <select name="category" aria-label="סוג מסמך" data-other-toggle>{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+      <input type="text" name="custom_name" maxlength="120" placeholder="שם המסמך (למשל: חוזה שכירות)" aria-label="שם מסמך חופשי" data-other-name hidden>
+      <input type="file" name="file" required aria-label="קובץ" accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx,.xls,.xlsx">
+      <button class="btn primary" type="submit">העלאה</button>
+    </form>
+    <form id="bulkForm" method="post" action="{% url 'documents_bulk' case.pk %}" class="actions" style="margin-bottom:.5rem">{% csrf_token %}
+      <label class="check"><input type="checkbox" data-select-all> בחירת הכל</label>
+      <button class="btn sm" type="submit" name="op" value="download">הורדת הנבחרים (ZIP)</button>
+      <button class="btn sm danger" type="submit" name="op" value="delete" data-confirm="למחוק את המסמכים שנבחרו?">מחיקת הנבחרים</button>
+    </form>
+    {% for d, a in docs_info %}
+    <div class="doc">
+      <input type="checkbox" name="doc" value="{{ d.pk }}" form="bulkForm" aria-label="בחירת מסמך" data-doc-check>
+      <a href="{% url 'document_download' d.pk %}">{{ d.original_name }}</a>
+      <span class="meta">{{ d.display_name }} · {{ d.size|filesizeformat }} · {{ d.uploaded_at|date:"d/m/Y" }}{% if d.uploaded_by %} · {{ d.uploaded_by.username }}{% endif %}</span>
+      {% if is_own %}<form method="post" class="req-act">{% csrf_token %}<input type="hidden" name="action" value="doc_category"><input type="hidden" name="doc" value="{{ d.pk }}">
+        <select name="category" aria-label="שינוי סוג מסמך" data-autosubmit>{% for v, l in categories %}<option value="{{ v }}" {% if d.category == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></form>{% endif %}
+      {% if is_own %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle_doc"><input type="hidden" name="doc" value="{{ d.pk }}">
+        <button class="btn sm {% if d.is_shared %}primary{% endif %}" type="submit" title="האם השותף רואה את המסמך">{% if d.is_shared %}משותף ✓{% else %}לא משותף{% endif %}</button></form>{% endif %}
+      {% if ai_enabled and case.ai_consent %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="ai_analyze"><input type="hidden" name="doc" value="{{ d.pk }}"><button class="btn sm" type="submit" title="חילוץ נתונים אוטומטי מהמסמך">ניתוח AI</button></form>{% endif %}
+      <form method="post" action="{% url 'document_delete' d.pk %}" data-confirm="למחוק את המסמך?">{% csrf_token %}<button class="btn sm danger" type="submit">מחיקה</button></form>
+    </div>
+    {% if a %}
+    <div class="ai-box">
+      <b>ניתוח AI: {{ a.get_status_display }}</b>
+      {% if a.summary %}<p style="margin:.3rem 0">{{ a.summary }}</p>{% endif %}
+      {% for w in a.warnings %}<p class="tag" style="display:block;margin:.2rem 0">⚠ {{ w }}</p>{% endfor %}
+      <ul class="ai-lines">{% for ind, line in a.lines %}<li style="margin-inline-start:{{ ind }}rem">{{ line }}</li>{% endfor %}</ul>
+      <div class="actions">
+        {% if a.status != 'confirmed' %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="analysis_confirm"><input type="hidden" name="analysis" value="{{ a.pk }}"><button class="btn sm primary" type="submit">הנתונים נכונים, אשר</button></form>{% endif %}
+        <form method="post" data-confirm="למחוק את הניתוח?">{% csrf_token %}<input type="hidden" name="action" value="analysis_discard"><input type="hidden" name="analysis" value="{{ a.pk }}"><button class="btn sm danger" type="submit">מחיקה</button></form>
+      </div>
+      <details><summary class="meta">תיקון ידני של הנתונים</summary>
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="analysis_fix"><input type="hidden" name="analysis" value="{{ a.pk }}">
+          <textarea name="data_json" class="ltr" style="min-height:140px;width:100%;font-family:monospace">{{ a.data_json }}</textarea>
+          <button class="btn sm" type="submit">שמירה ואישור</button></form></details>
+    </div>
+    {% endif %}
+    {% empty %}<p class="empty">עוד לא הועלו מסמכים.</p>{% endfor %}
+  </section>
+</div>
+
+<div style="display:grid;gap:1rem;align-content:start">
+  {% if is_own %}
+  <section class="panel clerk">
+    <div class="clerk-head">
+      <span class="clerk-av" aria-hidden="true">מ</span>
+      <div><h2 style="margin:0">המתפעלת</h2><span class="meta">עברה על כל מסמכי התיק. הערות בצד:</span></div>
+    </div>
+    {% if clerk_notes %}
+    <ul class="notes-side">
+      {% for n in clerk_notes %}<li class="n-{{ n.sev }}"><span class="n-tag">{{ n.label }}</span><div>{{ n.text }}{% if n.doc %}<small class="meta"> · {{ n.doc }}</small>{% endif %}</div></li>{% endfor %}
+    </ul>
+    {% else %}<p class="meta" style="margin:.6rem 0 0">אין הערות. הכול נראה תקין.</p>{% endif %}
+    <p class="sub" style="margin:.8rem 0 .6rem">היא מציעה בלבד: לא סוגרת תיק ולא שולחת הודעות.</p>
+    <a class="btn primary" href="{% url 'case_ops' case.pk %}">דוח מלא והודעה ללקוח</a>
+  </section>
+
+  {% endif %}
+
+  {% if fin and fin.has_data %}
+  <section class="panel">
+    <h2 style="margin-top:0">סיכום פיננסי <span class="meta">(מחושב מנתונים שאושרו)</span></h2>
+    <dl>
+      {% if fin.payslips %}<dt>שכר נטו ממוצע ({{ fin.payslips }} תלושים)</dt><dd>{{ fin.avg_net|floatformat:0 }} ₪{% if fin.avg_gross %} · ברוטו {{ fin.avg_gross|floatformat:0 }} ₪{% endif %}</dd>{% endif %}
+      {% if fin.bank_income %}<dt>הכנסה ממוצעת לפי בנק</dt><dd>{{ fin.bank_income|floatformat:0 }} ₪</dd>{% endif %}
+      {% if fin.loans_count %}<dt>הלוואות</dt><dd>{{ fin.loans_count }} · יתרה כוללת {{ fin.loans_balance|floatformat:0 }} ₪</dd>
+      <dt>החזר חודשי כולל</dt><dd>{{ fin.loans_monthly|floatformat:0 }} ₪{% if fin.avg_rate %} · ריבית ממוצעת משוקללת {{ fin.avg_rate|floatformat:2 }}%{% endif %}</dd>{% endif %}
+      {% if fin.dti %}<dt>יחס החזר להכנסה</dt><dd><b>{{ fin.dti|floatformat:1 }}%</b> <span class="meta">(הכנסה בחישוב: {{ fin.income_used|floatformat:0 }} ₪)</span></dd>{% endif %}
+      {% if fin.pension_total %}<dt>יתרות פנסיה</dt><dd>{{ fin.pension_total|floatformat:0 }} ₪</dd>{% endif %}
+    </dl>
+    <p class="sub" style="margin-bottom:0">החישוב נעשה במערכת ולא על ידי ה-AI, ורק על נתונים שאישרת.</p>
+  </section>
+  {% endif %}
+
+  {% if is_own %}
+  <section class="panel">
+    <h2 style="margin-top:0">מסמכים מתבנית</h2>
+    {% if templates %}
+    <form method="post" class="actions">{% csrf_token %}<input type="hidden" name="action" value="generate">
+      <select name="template" aria-label="תבנית">{% for t in templates %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}</select>
+      <button class="btn primary" type="submit">הפקת מסמך</button>
+    </form>
+    <p class="sub" style="margin-bottom:0">המסמך ממולא מפרטי התיק ונשמר בטבלת המסמכים כ״חוזה חתום״.</p>
+    {% else %}<p class="sub" style="margin:0">{% if is_manager %}עוד אין תבניות. <a href="{% url 'templates' %}">העלה תבנית Word</a>.{% else %}עוד אין תבניות. המנהל יכול להעלות.{% endif %}</p>{% endif %}
+  </section>
+
+
+  {% if ai_enabled %}
+  <section class="panel">
+    <h2 style="margin-top:0">כלי AI</h2>
+    {% if case.ai_consent %}
+      <p class="sub">הלקוח אישר שימוש ב-AI ({{ case.ai_consent_at|date:"d/m/Y" }}). מסמכים נשלחים לניתוח בשירות חיצוני.</p>
+      {% if can_consent %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="ai_consent_off"><button class="btn sm" type="submit">ביטול האישור</button></form>{% endif %}
+    {% elif can_consent %}
+      <p class="sub">מסמכי התיק (ת"ז, תלושים, דפי בנק) נשלחים לשירות AI חיצוני לצורך קריאה. יש לקבל מהלקוח הסכמה לכך לפני שמפעילים.</p>
+      <form method="post" class="actions">{% csrf_token %}<input type="hidden" name="action" value="ai_consent">
+        <label class="check"><input type="checkbox" required> הלקוח אישר ניתוח מסמכיו בכלי AI</label>
+        <button class="btn primary" type="submit">רישום האישור</button></form>
+    {% else %}<p class="sub" style="margin:0">הפעלת ה-AI בתיק דורשת אישור לקוח, שנרשם על ידי המטפל בתיק.</p>{% endif %}
+  </section>
+  {% if case.ai_consent %}
+  <section class="panel">
+    <h2 style="margin-top:0">סיכום שיחה עם AI</h2>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="call_summary">
+      <textarea name="transcript" placeholder="הדבק תמלול או הערות מהשיחה" aria-label="תמלול"></textarea>
+      <label class="check" style="margin:.4rem 0"><input type="checkbox" name="make_tasks" checked> צור משימות המשך אוטומטית</label>
+      <button class="btn primary" type="submit">סיכום</button>
+    </form>
+  </section>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {% if is_own %}
+  <section class="panel">
+    <h2 style="margin-top:0">שיתוף התיק</h2>
+    {% for sh in shares %}
+    <div class="doc"><span>משותף עם <b>{{ sh.shared_with.username }}</b></span><span class="meta">מאז {{ sh.created_at|date:"d/m/Y" }}</span>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="unshare"><input type="hidden" name="share" value="{{ sh.pk }}"><button class="btn sm danger" type="submit">ביטול שיתוף</button></form></div>
+    {% empty %}<p class="sub">התיק לא משותף. בשיתוף, השותף רואה את התיק ואת פרטי הלקוח, ורק את המסמכים שתסמן כ״משותף״.</p>{% endfor %}
+    {% if partners %}
+    <form method="post" class="actions" style="margin-top:.6rem">{% csrf_token %}<input type="hidden" name="action" value="share">
+      <select name="partner" aria-label="שתף עם">{% for u in partners %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.profile.get_workspace_display }})</option>{% endfor %}</select>
+      <input type="text" name="msg" placeholder="הודעה (אופציונלי)" size="22" aria-label="הודעה">
+      <button class="btn primary" type="submit">שיתוף</button>
+    </form>{% endif %}
+  </section>
+  {% else %}
+  <section class="panel"><p class="meta" style="margin:0">תיק משותף: אתה רואה את הפרטים ואת המסמכים שסומנו לשיתוף, ויכול לערוך ולהוסיף הערות ומסמכים.</p></section>
+  {% endif %}
+
+  <section class="panel">
+    <h2 style="margin-top:0">משימה לתיק</h2>
+    <form method="post" class="actions">{% csrf_token %}<input type="hidden" name="action" value="task">
+      <input type="text" name="title" placeholder="מה צריך לעשות?" required size="22" aria-label="משימה">
+      <input type="date" name="due_on" aria-label="תאריך יעד">
+      <select name="priority" aria-label="עדיפות"><option value="normal">רגיל</option><option value="urgent">דחוף</option></select>
+      <button class="btn" type="submit">הוספה</button>
+    </form>
+    {% for t in case_tasks %}<p class="meta" style="margin:.4rem 0 0">• {{ t.title }}{% if t.due_on %} ({{ t.due_on|date:"d/m" }}){% endif %}</p>{% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-top:0">תקציר התיק</h2>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="summary">
+      <textarea name="summary" aria-label="תקציר" placeholder="מצב הלקוח, מטרת התיק, נקודות חשובות">{{ case.summary }}</textarea>
+      <button class="btn" type="submit" style="margin-top:.5rem">שמירת תקציר</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2 style="margin-top:0">קשר עם הלקוח</h2>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="note">
+      <select name="channel" aria-label="אמצעי קשר" style="margin-bottom:.5rem">
+        <option value="">הערה כללית</option>
+        {% for v, l in channels %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+      </select>
+      <textarea name="text" placeholder="עם מי דיברת, ומה סוכם?" aria-label="הערה"></textarea>
+      <button class="btn primary" type="submit" style="margin-top:.5rem">הוספה</button>
+    </form>
+    <ul class="timeline" style="margin-top:1rem">
+      {% for n in notes %}<li class="{{ n.kind }}">{% if n.channel %}<span class="badge">{{ n.get_channel_display }}</span> {% endif %}{{ n.text|linebreaksbr }}<br><small>{{ n.created_at|date:"d/m/Y H:i" }}{% if n.author %} · {{ n.author.username }}{% endif %}</small></li>
+      {% empty %}<li class="empty">עוד אין פעילות בתיק.</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+</div>
+{% if can_delete %}
+<form method="post" action="{% url 'case_delete' case.pk %}" data-confirm="למחוק את התיק, כולל המסמכים וההערות שלו? אי אפשר לשחזר." style="margin-top:1.5rem">{% csrf_token %}
+  <button class="btn sm danger" type="submit">מחיקת התיק</button>
+</form>
+{% endif %}
+{% endblock %}

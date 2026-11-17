@@ -1,0 +1,51 @@
+{% extends "leads/base.html" %}
+{% block title %}המתפעלת · {{ case.lead.full_name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'case_detail' case.pk %}">חזרה לתיק</a></p>
+<div class="dash-head">
+  <h1>המתפעלת: {{ case.get_case_type_display }} · {{ case.lead.full_name }}</h1>
+  <form method="post">{% csrf_token %}<button class="btn primary" type="submit">{% if run %}הרצה מחדש{% else %}הרצת המתפעלת{% endif %}</button></form>
+</div>
+<p class="sub">היא מציעה בלבד. {% if case.ai_consent and ai_enabled %}ל-AI נשלחים רק נתוני הצ'קליסט והמספרים שחושבו, בלי שם, ת״ז, טלפון, כתובת או תוכן מסמכים.{% else %}הדוח הנוכחי מחושב בקוד בלבד (ללא AI{% if not case.ai_consent %}: לא נרשמה הסכמת לקוח{% endif %}).{% endif %}</p>
+
+{% if not run %}
+  <p class="empty">עוד לא הורץ דוח לתיק הזה.</p>
+{% else %}
+  {% if outdated %}<div class="msg warning">התיק השתנה מאז ההרצה האחרונה ({{ run.created_at|date:"d/m/Y H:i" }}). מומלץ להריץ מחדש.</div>{% endif %}
+  {% if run.output.unverified %}<div class="msg warning">התקציר מזכיר מספרים שלא מופיעים בנתונים ({{ run.output.unverified|join:", " }}). בדוק לפני שאתה סומך עליהם.</div>{% endif %}
+  <div class="two">
+    <section class="panel">
+      <h2 style="margin-top:0">צ'קליסט מסמכים</h2>
+      <ul class="check-list">{% for i in run.facts.checklist %}<li class="{% if i.ok %}ok{% endif %}">{% if i.ok %}✓{% else %}○{% endif %} {{ i.label }}{% if i.state == 'optional' %} <span class="pill">אם יש</span>{% endif %}</li>{% endfor %}</ul>
+      {% if run.facts.awaiting_confirmation %}<div class="msg warning">מוצעים כחסרים: {{ run.facts.proposed_missing|join:", " }}. <a href="{% url 'case_detail' case.pk %}">לאישור או לסימון מה לא נדרש</a>.</div>{% endif %}
+      <h2>מה כדאי לעשות</h2>
+      {% if run.output.next_steps %}<ul class="ai-lines">{% for s in run.output.next_steps %}<li>• {{ s }}</li>{% endfor %}</ul>{% else %}<p class="meta">אין פעולות פתוחות.</p>{% endif %}
+    </section>
+    <section class="panel">
+      <h2 style="margin-top:0">תקציר</h2>
+      <p>{{ run.summary }}</p>
+      {% if run.output.attention %}<h3>שווה תשומת לב</h3><ul class="ai-lines">{% for a in run.output.attention %}<li>• {{ a }}</li>{% endfor %}</ul>{% endif %}
+      <p class="meta">הורץ {{ run.created_at|date:"d/m/Y H:i" }} · {% if run.used_ai %}ניסוח ע״י AI{% else %}חישוב בקוד{% endif %}</p>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:1.1rem">
+    <h2 style="margin-top:0">הערות בצד על המסמכים</h2>
+    {% if clerk_notes %}<ul class="notes-side">{% for n in clerk_notes %}<li class="n-{{ n.sev }}"><span class="n-tag">{{ n.label }}</span><div>{{ n.text }}{% if n.doc %}<small class="meta"> · {{ n.doc }}</small>{% endif %}</div></li>{% endfor %}</ul>
+    {% else %}<p class="meta">אין הערות.</p>{% endif %}
+  </section>
+
+  <section class="panel" style="margin-top:1.1rem">
+    <h2 style="margin-top:0">טיוטת הודעה ללקוח</h2>
+    {% if message_text %}
+      <p class="sub">זו טיוטה. קרא, ערוך בוואטסאפ אם צריך, ושלח בעצמך.</p>
+      <pre id="msgtext" class="ai-box" style="white-space:pre-wrap;font-family:inherit;margin:0 0 .8rem">{{ message_text }}</pre>
+      <div class="actions">
+        {% if wa_url %}<a class="btn primary" href="{{ wa_url }}" target="_blank" rel="noopener noreferrer">פתיחה בוואטסאפ</a>{% else %}<span class="meta">אין מספר טלפון תקין ללקוח.</span>{% endif %}
+        <button class="btn" type="button" data-copy="#msgtext">העתקה</button>
+      </div>
+    {% elif run.facts.awaiting_confirmation %}<p class="meta">ההודעה תנוסח אחרי שתאשר מה באמת חסר.</p>
+    {% else %}<p class="meta">אין מסמכים חסרים, ולכן אין מה לבקש מהלקוח.</p>{% endif %}
+  </section>
+{% endif %}
+{% endblock %}

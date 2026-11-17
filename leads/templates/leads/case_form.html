@@ -1,0 +1,28 @@
+{% extends "leads/base.html" %}
+{% block title %}תיק חדש{% endblock %}
+{% block content %}
+<p><a href="{% url 'case_board' %}">חזרה לתיקים</a></p>
+<h1>פתיחת תיק ידנית</h1>
+<p class="sub">אם הלקוח כבר קיים במערכת (לפי תעודת זהות), התיק יצורף אליו. אחרת ייווצר לקוח חדש.</p>
+<form method="post" class="panel formgrid">{% csrf_token %}
+  <label>שם פרטי *<br><input type="text" name="first_name" value="{{ v.first_name|default:'' }}" required></label>
+  <label>שם משפחה<br><input type="text" name="last_name" value="{{ v.last_name|default:'' }}"></label>
+  <label>תעודת זהות *<br><input type="text" name="national_id" value="{{ v.national_id|default:'' }}" inputmode="numeric" maxlength="9" required></label>
+  <label>טלפון (חובה ללקוח חדש)<br><input type="text" name="phone" value="{{ v.phone|default:'' }}" inputmode="tel"></label>
+  <label>אימייל<br><input type="text" name="email" value="{{ v.email|default:'' }}"></label>
+  <label>עיר<br><input type="text" name="city" value="{{ v.city|default:'' }}"></label>
+  <label>סוג תיק *<br><select name="case_type" required>{% for val, l in case_types %}<option value="{{ val }}">{{ l }}</option>{% endfor %}</select></label>
+  <label>סכום העסקה (₪)<br><input type="text" name="amount" inputmode="numeric"></label>
+  <label>הכנסה חודשית (₪)<br><input type="text" name="monthly_income" inputmode="numeric"></label>
+  <label>מספר תיק הוצל״פ / אסמכתא<br><input type="text" name="file_number"></label>
+  {% if me.workspace == 'legal' %}
+  <label>שם החייב<br><input type="text" name="debtor_name" value="{{ v.debtor_name|default:'' }}"></label>
+  <label>שם הזוכה<br><input type="text" name="creditor_name" value="{{ v.creditor_name|default:'' }}"></label>
+  <label>סוג ההליך<br><select name="procedure_type"><option value="">בחר</option>{% for val, l in procedures %}<option value="{{ val }}">{{ l }}</option>{% endfor %}</select></label>
+  <label>סכום הקרן (₪)<br><input type="text" name="principal_amount" inputmode="numeric"></label>
+  <label>רשם / שופט<br><input type="text" name="registrar_judge"></label>
+  {% endif %}
+  <label style="grid-column:1/-1">תקציר / מה הלקוח מבקש<br><textarea name="summary"></textarea></label>
+  <div style="grid-column:1/-1"><button class="btn primary" type="submit">פתיחת תיק</button></div>
+</form>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "leads/base.html" %}
+{% block title %}דוח גוגל אדס{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ report.title|default:"דוח גוגל אדס" }}</h1><p class="sub">{{ report.period_start|date:"d/m/Y" }}–{{ report.period_end|date:"d/m/Y" }} · {{ report.get_status_display }}</p></div>
+  <a class="btn" href="{% url 'ads_home' %}">כל הדוחות</a>
+</div>
+{% if report.status == 'draft' %}<div class="msg warning">הנתונים טרם אושרו. בדוק כל שורה מול Google Ads, תקן, ולחץ "אישור וחישוב". עד אז שום דבר לא מחושב.</div>{% endif %}
+{% for w in report.warnings %}<div class="msg warning">{{ w }}</div>{% endfor %}
+
+{% if facts and report.status == 'confirmed' %}
+<div class="grid">
+  <div class="stat"><b>{{ facts.totals.cost|floatformat:0 }} ₪</b><span>הוצאה</span></div>
+  <div class="stat"><b>{{ facts.totals.leads }}</b><span>לידים ב-CRM</span></div>
+  <div class="stat"><b>{% if facts.totals.cost_per_lead %}{{ facts.totals.cost_per_lead|floatformat:0 }} ₪{% else %}-{% endif %}</b><span>עלות ליד</span></div>
+  <div class="stat"><b>{{ facts.totals.closed }}</b><span>תיקים שנסגרו</span></div>
+  <div class="stat"><b>{% if facts.totals.cost_per_closed %}{{ facts.totals.cost_per_closed|floatformat:0 }} ₪{% else %}-{% endif %}</b><span>עלות תיק סגור</span></div>
+</div>
+
+<section class="panel" style="margin-top:1.1rem">
+  <div class="actions" style="justify-content:space-between">
+    <h2 style="margin:0">סיכום ותיקונים</h2>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="narrate"><button class="btn primary" type="submit">{% if report.narrative %}ניתוח מחדש{% else %}ניתוח הדוח{% endif %}</button></form>
+  </div>
+  {% if report.narrative %}
+    <p style="font-size:1.05rem;margin:.6rem 0">{{ report.narrative.summary }}</p>
+    {% for t in report.narrative.tips %}<p class="meta" style="margin:.25rem 0">• {{ t }}</p>{% endfor %}
+    {% if report.narrative.unverified %}<div class="msg warning">הסיכום מזכיר מספרים שלא מופיעים בנתונים ({{ report.narrative.unverified|join:", " }}). בדוק בטבלה.</div>{% endif %}
+    <p class="meta">{% if report.narrative.used_ai %}נוסח ע״י AI מתוך המספרים המחושבים בלבד{% else %}נכתב בקוד{% endif %}</p>
+  {% else %}<p class="sub">לחץ "ניתוח הדוח" לסיכום והמלצות. הדגלים למטה מחושבים בקוד גם בלעדיו.</p>{% endif %}
+</section>
+
+{% if facts.flags %}<section class="panel"><h2 style="margin-top:0">דגלים שנמצאו</h2>
+  {% for f in facts.flags %}<div class="msg warning">{{ f.text }}</div>{% endfor %}</section>{% endif %}
+
+<section class="panel" style="overflow-x:auto"><h2 style="margin-top:0">לפי קמפיין</h2>
+  <table class="tbl"><thead><tr><th>קמפיין</th><th>עלות</th><th>קליקים</th><th>CTR%</th><th>CPC</th><th>המרות Google</th><th>לידים</th><th>חמים</th><th>עלות ליד</th><th>נסגרו</th><th>מחזור</th><th>החזר</th></tr></thead><tbody>
+  {% for c in facts.campaigns %}<tr><td>{{ c.campaign }}{% if not c.enough_data %} <span class="meta">(מעט נתונים)</span>{% endif %}</td><td>{{ c.cost|floatformat:0 }}</td><td>{{ c.clicks }}</td><td>{{ c.ctr_pct|default_if_none:"-" }}</td><td>{{ c.cpc|default_if_none:"-" }}</td><td>{{ c.google_conversions }}</td><td>{{ c.leads }}</td><td>{{ c.hot }}</td><td>{{ c.cost_per_lead|default_if_none:"-" }}</td><td>{{ c.closed }}</td><td>{{ c.revenue }}</td><td>{% if c.return_x %}x{{ c.return_x }}{% else %}-{% endif %}</td></tr>{% endfor %}
+  </tbody></table>
+  <p class="meta">לידים נספרים לפי שם הקמפיין ב-UTM שהגיע מהאתר. מחזור = עלות התיקים שנסגרו.</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2 style="margin-top:0">{% if report.status == 'draft' %}בדיקה ותיקון{% else %}עריכת הנתונים{% endif %}</h2>
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="save">
+    <div class="actions" style="margin-bottom:.6rem">
+      <label>מתאריך<br><input type="date" name="start" value="{{ report.period_start|date:'Y-m-d' }}"></label>
+      <label>עד תאריך<br><input type="date" name="end" value="{{ report.period_end|date:'Y-m-d' }}"></label>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>קמפיין</th><th>עלות ₪</th><th>קליקים</th><th>חשיפות</th><th>המרות</th></tr></thead><tbody>
+      {% for r in report.rows %}<tr><td><input type="text" name="campaign" value="{{ r.campaign }}" maxlength="120"></td><td><input type="text" inputmode="decimal" name="cost" value="{{ r.cost }}" size="8"></td><td><input type="text" inputmode="decimal" name="clicks" value="{{ r.clicks }}" size="7"></td><td><input type="text" inputmode="decimal" name="impressions" value="{{ r.impressions }}" size="8"></td><td><input type="text" inputmode="decimal" name="conversions" value="{{ r.conversions }}" size="6"></td></tr>{% endfor %}
+      {% for _ in blank_rows %}<tr><td><input type="text" name="campaign" maxlength="120" placeholder="קמפיין חדש"></td><td><input type="text" inputmode="decimal" name="cost" size="8"></td><td><input type="text" inputmode="decimal" name="clicks" size="7"></td><td><input type="text" inputmode="decimal" name="impressions" size="8"></td><td><input type="text" inputmode="decimal" name="conversions" size="6"></td></tr>{% endfor %}
+    </tbody></table></div>
+    <label style="display:block;margin-top:.6rem">הערות לבדיקה (שורה לכל פריט)<br><textarea name="notes" rows="4">{{ notes_text }}</textarea></label>
+    <button class="btn primary" type="submit" style="margin-top:.6rem">אישור וחישוב</button>
+  </form>
+  {% if images %}<div class="actions" style="margin-top:.8rem">{% for im in images %}<a href="{% url 'ads_image' report.pk im.pk %}" target="_blank"><img src="{% url 'ads_image' report.pk im.pk %}" alt="צילום מסך {{ forloop.counter }}" style="max-height:110px;border-radius:8px"></a>{% endfor %}</div>{% endif %}
+</section>
+<form method="post" data-confirm="למחוק את הדוח?">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="btn sm danger" type="submit">מחיקת הדוח</button></form>
+{% endblock %}

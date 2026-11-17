@@ -1,0 +1,15 @@
+<div class="tasklist">
+{% for t in items %}
+<div class="task {% if t.done %}done{% endif %}">
+  <form method="post" action="{% url 'task_toggle' t.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button class="tick" type="submit" aria-label="{% if t.done %}החזר{% else %}סמן כבוצע{% endif %}">{% if t.done %}✓{% endif %}</button></form>
+  <div class="task-body">
+    <span>{{ t.title }}</span>
+    {% if t.priority == 'urgent' %}<span class="tag urgent">דחוף</span>{% endif %}
+    {% if t.due_on %}<span class="meta{% if t.due_on < today and not t.done %} late{% endif %}">{{ t.due_on|date:"d/m" }}</span>{% endif %}
+    {% if t.case %}<a class="meta" href="{% url 'case_detail' t.case.pk %}">{{ t.case.lead.full_name }}</a>{% elif t.lead %}<a class="meta" href="{% url 'lead_detail' t.lead.pk %}">{{ t.lead.full_name }}</a>{% endif %}
+  </div>
+  <form method="post" action="{% url 'task_delete' t.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn sm" type="submit" aria-label="מחיקה">✕</button></form>
+</div>
+{% empty %}<p class="empty">{{ empty_text|default:"אין משימות." }}</p>{% endfor %}
+</div>
